@@ -1,5 +1,3 @@
-@AGENTS.md
-
 # Riftbound Simulator
 
 A scenario solver / simulator for **Riftbound**, the League of Legends TCG
