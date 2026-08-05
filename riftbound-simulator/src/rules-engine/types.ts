@@ -48,6 +48,8 @@ export interface PlayerState {
   id: PlayerId;
   points: number;
   hand: CardDefinition[];
+  // Ordered; index 0 is the top of the deck (next card drawn).
+  deck: CardDefinition[];
 }
 
 export interface GameState {

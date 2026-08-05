@@ -1,3 +1,4 @@
+import { draw } from './deck';
 import { GameState } from './types';
 
 export type ScoreMethod = 'conquer' | 'hold';
@@ -55,7 +56,6 @@ export function score(
     return { scored: true, pointAwarded: true, wonGame: true, drewCardInstead: false };
   }
 
-  // Card-drawing is not modeled yet (no deck in GameState); callers should
-  // treat `drewCardInstead: true` as a signal to draw for this player.
+  draw(state, playerId, 1);
   return { scored: true, pointAwarded: false, wonGame: false, drewCardInstead: true };
 }

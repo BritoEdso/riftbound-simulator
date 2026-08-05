@@ -1,7 +1,20 @@
 import { resolveCombat } from '../combat';
 import { applyDiscipline } from '../effects';
 import { score } from '../scoring';
-import { GameState, UnitInPlay } from '../types';
+import { CardDefinition, GameState, UnitInPlay } from '../types';
+
+function makeCard(id: string): CardDefinition {
+  return {
+    id,
+    name: id,
+    type: 'Spell',
+    domains: [],
+    energyCost: 0,
+    powerCost: {},
+    keywords: [],
+    rulesText: '',
+  };
+}
 
 function makeUnit(overrides: Partial<UnitInPlay>): UnitInPlay {
   return {
@@ -22,8 +35,8 @@ function makeGameState(units: UnitInPlay[]): GameState {
     turnPlayer: 'p1',
     victoryScore: 8,
     players: {
-      p1: { id: 'p1', points: 0, hand: [] },
-      p2: { id: 'p2', points: 7, hand: [] },
+      p1: { id: 'p1', points: 0, hand: [], deck: [] },
+      p2: { id: 'p2', points: 7, hand: [], deck: [] },
     },
     battlefields: [{ id: 'bf1', controller: 'p2', contested: true, scoredByThisTurn: [] }],
     units,
@@ -72,9 +85,13 @@ describe('the example scenario: 5-Might attacker vs 6-Might defender', () => {
       combatRole: 'defending',
     });
     const state = makeGameState([attacker, defender]);
+    state.players.p1.deck = [makeCard('draw-card')];
 
     applyDiscipline(state, 'attacker');
     expect(attacker.might).toBe(7);
+    // Discipline's "Draw 1" — the top card of the attacker's controller's
+    // deck should now be in their hand.
+    expect(state.players.p1.hand).toEqual([makeCard('draw-card')]);
 
     const result = resolveCombat(state, 'bf1');
 
@@ -107,8 +124,12 @@ describe('the example scenario: 5-Might attacker vs 6-Might defender', () => {
     const state = makeGameState([attacker, defender]);
     state.players.p1.points = 7; // one point from Victory Score (8)
     state.battlefields.push({ id: 'bf2', controller: 'p2', contested: false, scoredByThisTurn: [] });
+    // Two cards queued up: one for Discipline's "Draw 1", one for the
+    // Conquer-at-match-point-without-full-board "draw a card instead" case.
+    state.players.p1.deck = [makeCard('discipline-draw'), makeCard('score-draw')];
 
     applyDiscipline(state, 'attacker');
+    expect(state.players.p1.hand).toEqual([makeCard('discipline-draw')]);
     resolveCombat(state, 'bf1');
 
     const result = score(state, 'p1', 'bf1', 'conquer');
@@ -117,6 +138,7 @@ describe('the example scenario: 5-Might attacker vs 6-Might defender', () => {
     expect(result.wonGame).toBe(false);
     expect(result.drewCardInstead).toBe(true);
     expect(state.players.p1.points).toBe(7);
+    expect(state.players.p1.hand).toEqual([makeCard('discipline-draw'), makeCard('score-draw')]);
 
     // Now p1 also scores their other battlefield (bf2) this turn — the next
     // Conquer/Hold there would grant the Final Point. Here we simulate that

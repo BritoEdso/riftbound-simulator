@@ -1,16 +1,17 @@
 import { CARD_DEFINITIONS } from './cards';
+import { draw } from './deck';
 import { GameState } from './types';
 
 // Card effects are implemented as functions that mutate a GameState. Effects
-// that require systems we haven't modeled yet (deck/draw, rune pools) are
-// called out in comments rather than silently doing nothing.
+// that require systems we haven't modeled yet (rune pools) are called out in
+// comments rather than silently doing nothing.
 
 // Discipline (OGN-058): "Give a unit +2 Might this turn. Draw 1."
 export function applyDiscipline(state: GameState, targetInstanceId: string): void {
   const unit = state.units.find((u) => u.instanceId === targetInstanceId);
   if (!unit) throw new Error(`Unknown unit: ${targetInstanceId}`);
   unit.might += 2;
-  // "Draw 1" is not applied here — no deck is modeled yet in GameState.
+  draw(state, unit.controller, 1);
 }
 
 // Retreat (OGN-104): "Return a friendly unit to its owner's hand. Its owner
