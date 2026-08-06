@@ -87,7 +87,7 @@ describe('the example scenario: 5-Might attacker vs 6-Might defender', () => {
     const state = makeGameState([attacker, defender]);
     state.players.p1.deck = [makeCard('draw-card')];
 
-    applyDiscipline(state, 'attacker');
+    applyDiscipline(state, 'attacker', 'p1');
     expect(attacker.might).toBe(7);
     // Discipline's "Draw 1" — the top card of the attacker's controller's
     // deck should now be in their hand.
@@ -128,7 +128,7 @@ describe('the example scenario: 5-Might attacker vs 6-Might defender', () => {
     // Conquer-at-match-point-without-full-board "draw a card instead" case.
     state.players.p1.deck = [makeCard('discipline-draw'), makeCard('score-draw')];
 
-    applyDiscipline(state, 'attacker');
+    applyDiscipline(state, 'attacker', 'p1');
     expect(state.players.p1.hand).toEqual([makeCard('discipline-draw')]);
     resolveCombat(state, 'bf1');
 
