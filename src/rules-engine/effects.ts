@@ -7,11 +7,11 @@ import { GameState } from './types';
 // comments rather than silently doing nothing.
 
 // Discipline (OGN-058): "Give a unit +2 Might this turn. Draw 1."
-export function applyDiscipline(state: GameState, targetInstanceId: string): void {
+export function applyDiscipline(state: GameState, targetInstanceId: string, casterId: string): void {
   const unit = state.units.find((u) => u.instanceId === targetInstanceId);
   if (!unit) throw new Error(`Unknown unit: ${targetInstanceId}`);
   unit.might += 2;
-  draw(state, unit.controller, 1);
+  draw(state, casterId, 1);
 }
 
 // Retreat (OGN-104): "Return a friendly unit to its owner's hand. Its owner
