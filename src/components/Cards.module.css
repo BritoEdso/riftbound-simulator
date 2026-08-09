@@ -1,0 +1,20 @@
+.cardImageSize {
+  max-width: 100%;
+  height: auto;
+}
+
+.battlefieldWrapper {
+  aspect-ratio: 744 / 1039;
+  container-type: size;
+  overflow: hidden;
+  position: relative;
+}
+
+.isBattlefield {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100cqh;
+  height: 100cqw;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
