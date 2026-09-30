@@ -1,12 +1,26 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --rift-panel: #fbfaf7;
+  --rift-panel-code: #f4f3ee;
+  --rift-rule: #dad7ce;
+  --rift-muted: #6b6d74;
+  --rift-accent: #34479e;
+  --rift-accent-soft: #e2e6f6;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    --rift-panel: #1b1e26;
+    --rift-panel-code: #191c22;
+    --rift-rule: #2b2e36;
+    --rift-muted: #9a9ca4;
+    --rift-accent: #8ca0ff;
+    --rift-accent-soft: #232a47;
   }
 }
 

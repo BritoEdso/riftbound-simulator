@@ -1,0 +1,150 @@
+.board {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr 2fr;
+  grid-template-rows: repeat(7, auto);
+  grid-template-areas:
+    "opp-trash opp-deck opp-hand opp-hand"
+    "opp-rune-deck opp-rune-pool opp-rune-pool opp-rune-pool"
+    "opp-champion opp-legend opp-base opp-base"
+    "bf-a bf-a bf-b bf-b"
+    "you-base you-base you-legend you-champion"
+    "you-rune-pool you-rune-pool you-rune-pool you-rune-deck"
+    "you-hand you-hand you-deck you-trash";
+  gap: 8px;
+  max-width: 1100px;
+  margin: 24px auto;
+  padding: 0 16px 48px;
+}
+
+.zone {
+  border: 1px solid var(--rift-rule);
+  background: var(--rift-panel);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 72px;
+}
+
+.zoneLabel {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rift-muted);
+}
+
+.zoneAccent {
+  border-color: var(--rift-accent);
+  background: var(--rift-accent-soft);
+}
+
+.zoneAccent .zoneLabel {
+  color: var(--rift-accent);
+}
+
+/* --- grid placement --- */
+.oppTrash { grid-area: opp-trash; }
+.oppDeck { grid-area: opp-deck; }
+.oppHand { grid-area: opp-hand; }
+.oppRuneDeck { grid-area: opp-rune-deck; }
+.oppRunePool { grid-area: opp-rune-pool; }
+.oppChampion { grid-area: opp-champion; }
+.oppLegend { grid-area: opp-legend; }
+.oppBase { grid-area: opp-base; }
+
+.battlefieldA { grid-area: bf-a; }
+.battlefieldB { grid-area: bf-b; }
+
+.youBase { grid-area: you-base; }
+.youLegend { grid-area: you-legend; }
+.youChampion { grid-area: you-champion; }
+.youRunePool { grid-area: you-rune-pool; }
+.youRuneDeck { grid-area: you-rune-deck; }
+.youHand { grid-area: you-hand; }
+.youDeck { grid-area: you-deck; }
+.youTrash { grid-area: you-trash; }
+
+/* --- card placeholders (hand, deck) --- */
+.cardRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cardBack,
+.cardFace {
+  width: 44px;
+  height: 60px;
+  border: 1px solid var(--rift-rule);
+  flex-shrink: 0;
+}
+
+.cardBack {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--rift-panel-code),
+    var(--rift-panel-code) 4px,
+    var(--rift-rule) 4px,
+    var(--rift-rule) 8px
+  );
+}
+
+.cardFace {
+  background: var(--rift-panel-code);
+}
+
+/* --- rune pool: 12-slot cap --- */
+.runeSlots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
+  gap: 4px;
+}
+
+.runeSlot {
+  aspect-ratio: 2 / 3;
+  border: 1px solid var(--rift-accent);
+  background: var(--rift-accent-soft);
+}
+
+/* --- battlefield: both players' units, split on either side of the name --- */
+.battlefield {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rift-rule);
+  background: var(--rift-panel);
+  min-height: 160px;
+}
+
+.battlefieldUnits {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.battlefieldUnits.opponentSide {
+  justify-content: flex-start;
+}
+
+.battlefieldUnits.yourSide {
+  justify-content: flex-start;
+}
+
+.battlefieldName {
+  text-align: center;
+  font-size: 13px;
+  padding: 4px;
+  background: var(--rift-accent-soft);
+  color: var(--rift-accent);
+  border-top: 1px solid var(--rift-rule);
+  border-bottom: 1px solid var(--rift-rule);
+}
+
+.unitSlot {
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--rift-rule);
+  background: var(--rift-panel-code);
+}
