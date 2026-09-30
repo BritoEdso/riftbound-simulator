@@ -1,19 +1,40 @@
 import Card from "@/components/Cards";
 import { CARD_IMAGES } from "@/components/cardImages";
-import { UnitInPlay } from "@/rules-engine/types";
+import { Domain, RuneInPlay, UnitInPlay } from "@/rules-engine/types";
 import styles from "./board.module.css";
 import { OPPONENT_PLAYER_ID, SAMPLE_GAME_STATE, YOU_PLAYER_ID } from "./sampleGameState";
 
+// Rule 154.2.b: exactly 12 Rune cards chosen at deck construction, so this
+// is the most that could ever be simultaneously channeled onto the board.
 const RUNE_POOL_CAP = 12;
 
-function RunePool({ label }: { label: string }) {
+const DOMAIN_COLOR: Record<Domain, string> = {
+  Fury: "#c0504d",
+  Calm: "#4d8fc0",
+  Mind: "#8f4dc0",
+  Body: "#4dc07a",
+  Chaos: "#c0824d",
+  Order: "#c0b84d",
+};
+
+function RunePool({ label, runes }: { label: string; runes: RuneInPlay[] }) {
   return (
     <div className={`${styles.zone} ${styles.zoneAccent}`}>
-      <span className={styles.zoneLabel}>{label}</span>
+      <span className={styles.zoneLabel}>
+        {label} ({runes.length}/{RUNE_POOL_CAP})
+      </span>
       <div className={styles.runeSlots}>
-        {Array.from({ length: RUNE_POOL_CAP }).map((_, i) => (
-          <div key={i} className={styles.runeSlot} />
-        ))}
+        {Array.from({ length: RUNE_POOL_CAP }).map((_, i) => {
+          const rune = runes[i];
+          return (
+            <div
+              key={i}
+              className={`${styles.runeSlot} ${rune && !rune.ready ? styles.runeExhausted : ""}`}
+              style={rune ? { background: DOMAIN_COLOR[rune.domain], borderColor: DOMAIN_COLOR[rune.domain] } : undefined}
+              title={rune ? `${rune.domain} — ${rune.ready ? "ready" : "exhausted"}` : "not yet channeled"}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -136,12 +157,10 @@ export default function BoardPage() {
       </div>
 
       <div className={styles.oppRuneDeck}>
-        <div className={styles.zone}>
-          <span className={styles.zoneLabel}>Rune Deck</span>
-        </div>
+        <DeckCount label="Rune Deck" count={opponent.runeDeck.length} />
       </div>
       <div className={styles.oppRunePool}>
-        <RunePool label="Rune Pool — 12 max in play" />
+        <RunePool label="Rune Pool" runes={opponent.runesInPlay} />
       </div>
 
       <div className={`${styles.zone} ${styles.zoneAccent} ${styles.oppChampion}`}>
@@ -190,12 +209,10 @@ export default function BoardPage() {
       </div>
 
       <div className={styles.youRunePool}>
-        <RunePool label="Rune Pool — 12 max in play" />
+        <RunePool label="Rune Pool" runes={you.runesInPlay} />
       </div>
       <div className={styles.youRuneDeck}>
-        <div className={styles.zone}>
-          <span className={styles.zoneLabel}>Rune Deck</span>
-        </div>
+        <DeckCount label="Rune Deck" count={you.runeDeck.length} />
       </div>
 
       <div className={styles.youHand}>

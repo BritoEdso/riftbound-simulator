@@ -19,8 +19,8 @@ function makeState(p1Deck: CardDefinition[], p2Deck: CardDefinition[] = []): Gam
     turnPlayer: 'p1',
     victoryScore: 8,
     players: {
-      p1: { id: 'p1', points: 0, hand: [], deck: p1Deck },
-      p2: { id: 'p2', points: 0, hand: [], deck: p2Deck },
+      p1: { id: 'p1', points: 0, hand: [], deck: p1Deck, runeDeck: [], runesInPlay: [] },
+      p2: { id: 'p2', points: 0, hand: [], deck: p2Deck, runeDeck: [], runesInPlay: [] },
     },
     battlefields: [],
     units: [],

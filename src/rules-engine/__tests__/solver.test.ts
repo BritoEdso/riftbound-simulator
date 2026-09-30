@@ -33,8 +33,8 @@ function makeGameState(units: UnitInPlay[]): GameState {
     turnPlayer: "p1",
     victoryScore: 8,
     players: {
-      p1: { id: "p1", points: 0, hand: [], deck: [] },
-      p2: { id: "p2", points: 7, hand: [], deck: [] },
+      p1: { id: "p1", points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [] },
+      p2: { id: "p2", points: 7, hand: [], deck: [], runeDeck: [], runesInPlay: [] },
     },
     battlefields: [
       { id: "bf1", controller: "p2", contested: true, scoredByThisTurn: [] },

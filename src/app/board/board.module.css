@@ -118,6 +118,11 @@
   background: var(--rift-accent-soft);
 }
 
+.runeExhausted {
+  opacity: 0.4;
+  transform: rotate(90deg);
+}
+
 /* --- battlefield: both players' units, split on either side of the name --- */
 .battlefield {
   display: flex;

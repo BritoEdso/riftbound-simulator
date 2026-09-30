@@ -35,6 +35,16 @@ export interface UnitInPlay {
   combatRole: 'attacking' | 'defending' | null;
 }
 
+// A Rune channeled onto the board (rule 606 — Channel), tracking whether
+// it's Ready or Exhausted. Distinct from the "Rune Pool" (rule 158): that's
+// the ephemeral Energy/Power counter a channeled Rune can be exhausted to
+// pay into, which resets every phase and isn't modeled yet — see effects.ts.
+export interface RuneInPlay {
+  instanceId: string;
+  domain: Domain;
+  ready: boolean;
+}
+
 export interface Battlefield {
   id: string;
   controller: PlayerId | null;
@@ -50,6 +60,13 @@ export interface PlayerState {
   hand: CardDefinition[];
   // Ordered; index 0 is the top of the deck (next card drawn).
   deck: CardDefinition[];
+  // Ordered; index 0 is the next Rune channeled (rule 606). Rule 154.2.b:
+  // exactly 12 Rune cards chosen at deck construction, so this plus
+  // runesInPlay never together exceeds 12.
+  runeDeck: Domain[];
+  // Runes already channeled onto the board, each individually Ready or
+  // Exhausted.
+  runesInPlay: RuneInPlay[];
 }
 
 export interface GameState {

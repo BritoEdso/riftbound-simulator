@@ -1,5 +1,6 @@
 import { CARD_DEFINITIONS } from './cards';
 import { draw } from './deck';
+import { channel } from './rune';
 import { GameState } from './types';
 
 // Card effects are implemented as functions that mutate a GameState. Effects
@@ -25,6 +26,6 @@ export function applyRetreat(state: GameState, targetInstanceId: string): void {
   if (cardDefinition) {
     state.players[unit.controller].hand.push(cardDefinition);
   }
-  // "Channels 1 rune exhausted" is not applied here — rune pools/energy
-  // economy are not modeled yet in GameState.
+  // "Its owner channels 1 rune exhausted" (rule 606).
+  channel(state, unit.controller, 1, false);
 }

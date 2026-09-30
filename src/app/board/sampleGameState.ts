@@ -1,10 +1,14 @@
 import { CARD_DEFINITIONS } from '@/rules-engine/cards';
-import { CardDefinition, GameState } from '@/rules-engine/types';
+import { CardDefinition, Domain, GameState, RuneInPlay } from '@/rules-engine/types';
 
 // A real, already-solved position — the same 5-Might-attacker-vs-6-Might-
 // defender scenario proven in solver.test.ts and written up in "The Solver
 // — Engineering Notes" — used here to give the board UI real GameState data
 // to render instead of inventing a new fixture.
+
+function makeRune(instanceId: string, domain: Domain, ready: boolean): RuneInPlay {
+  return { instanceId, domain, ready };
+}
 
 function fillerCard(id: string): CardDefinition {
   return {
@@ -31,12 +35,27 @@ export const SAMPLE_GAME_STATE: GameState = {
       points: 7,
       hand: [CARD_DEFINITIONS['OGN-058'], CARD_DEFINITIONS['OGN-104']],
       deck: Array.from({ length: 22 }, (_, i) => fillerCard(`you-deck-${i}`)),
+      // 4 channeled (rule 606) + 8 still in the Rune Deck = 12 total (154.2.b).
+      runesInPlay: [
+        makeRune('you-rune-0', 'Calm', true),
+        makeRune('you-rune-1', 'Calm', true),
+        makeRune('you-rune-2', 'Mind', false),
+        makeRune('you-rune-3', 'Fury', true),
+      ],
+      runeDeck: ['Calm', 'Mind', 'Fury', 'Body', 'Chaos', 'Order', 'Calm', 'Mind'],
     },
     [OPPONENT_PLAYER_ID]: {
       id: OPPONENT_PLAYER_ID,
       points: 6,
       hand: Array.from({ length: 4 }, (_, i) => fillerCard(`opp-hand-${i}`)),
       deck: Array.from({ length: 24 }, (_, i) => fillerCard(`opp-deck-${i}`)),
+      // 3 channeled + 9 still in the Rune Deck = 12 total.
+      runesInPlay: [
+        makeRune('opp-rune-0', 'Body', true),
+        makeRune('opp-rune-1', 'Chaos', true),
+        makeRune('opp-rune-2', 'Order', false),
+      ],
+      runeDeck: ['Body', 'Chaos', 'Order', 'Body', 'Chaos', 'Order', 'Body', 'Chaos', 'Order'],
     },
   },
   battlefields: [
