@@ -1,4 +1,4 @@
-import { canWin } from "../solver";
+import { canWin, legalActions } from "../solver";
 import { CardDefinition, GameState, UnitInPlay } from "../types";
 
 function makeCard(id: string): CardDefinition {
@@ -88,5 +88,43 @@ describe("the example scenario: 5-Might attacker vs 6-Might defender", () => {
 
     const result = canWin(state, "p1");
     expect(result.won).toBe(false);
+  });
+});
+
+describe("legalActions: resolveCombat damage-order choices", () => {
+  it("offers exactly one resolveCombat action for a 1-vs-1 fight (no real choice to make)", () => {
+    const attacker = makeUnit({ instanceId: "attacker", combatRole: "attacking" });
+    const defender = makeUnit({ instanceId: "defender", controller: "p2", combatRole: "defending" });
+    const state = makeGameState([attacker, defender]);
+
+    const combatActions = legalActions(state, "p1").filter((a) => a.type === "resolveCombat");
+
+    expect(combatActions).toHaveLength(1);
+    expect(combatActions[0]).toMatchObject({
+      attackerDamageOrder: undefined,
+      defenderDamageOrder: undefined,
+    });
+  });
+
+  it("offers one resolveCombat action per attacker-order × defender-order permutation when both sides have 2+ units", () => {
+    const attackers = [
+      makeUnit({ instanceId: "a1", combatRole: "attacking" }),
+      makeUnit({ instanceId: "a2", combatRole: "attacking" }),
+    ];
+    const defenders = [
+      makeUnit({ instanceId: "d1", controller: "p2", combatRole: "defending" }),
+      makeUnit({ instanceId: "d2", controller: "p2", combatRole: "defending" }),
+    ];
+    const state = makeGameState([...attackers, ...defenders]);
+
+    const combatActions = legalActions(state, "p1").filter((a) => a.type === "resolveCombat");
+
+    // 2! attacker orders x 2! defender orders = 4 distinct ways to resolve
+    // this single battlefield's combat.
+    expect(combatActions).toHaveLength(4);
+    const serialized = combatActions.map((a) =>
+      JSON.stringify([a.type === "resolveCombat" ? a.attackerDamageOrder : null, a.type === "resolveCombat" ? a.defenderDamageOrder : null]),
+    );
+    expect(new Set(serialized).size).toBe(4); // all 4 are actually distinct
   });
 });

@@ -148,3 +148,49 @@ describe('the example scenario: 5-Might attacker vs 6-Might defender', () => {
     expect(state.players.p1.points).toBe(8);
   });
 });
+
+describe('damage assignment order (rule 627: equal-priority targets, assigning player chooses)', () => {
+  // The defender's Might (3) is both its health and what it deals back —
+  // enough to kill B (1) but not A (4), so whichever of A/B is prioritized
+  // determines who's actually at risk. The defender itself dies either way
+  // (attackers' combined Might, 5, exceeds its own, 3) — a full wipe is
+  // order-independent in this engine; only which specific units survive a
+  // *partial* wipe depends on the chosen order. Fresh units per scenario —
+  // resolveCombat mutates them, so they can't be shared across two runs.
+  function makeTrio() {
+    return [
+      makeUnit({ instanceId: 'A', controller: 'p1', might: 4, combatRole: 'attacking' }),
+      makeUnit({ instanceId: 'B', controller: 'p1', might: 1, combatRole: 'attacking' }),
+      makeUnit({ instanceId: 'defender', controller: 'p2', might: 3, combatRole: 'defending' }),
+    ];
+  }
+
+  it("lets the assigning player choose which of two equal-priority targets is put at risk", () => {
+    const prioritizeA = makeGameState(makeTrio());
+    const resultA = resolveCombat(prioritizeA, 'bf1', { defenderDamageOrder: ['A', 'B'] });
+    // All 3 damage goes to A (nonlethal, needs 4); B is never reached.
+    expect(resultA.killed).toEqual(['defender']);
+    expect(prioritizeA.units.map((u) => u.instanceId).sort()).toEqual(['A', 'B']);
+    expect(resultA.conquered).toBe(true);
+
+    const prioritizeB = makeGameState(makeTrio());
+    const resultB = resolveCombat(prioritizeB, 'bf1', { defenderDamageOrder: ['B', 'A'] });
+    // B gets its 1 lethal and dies too; the remaining 2 go to A (still nonlethal).
+    expect(resultB.killed.sort()).toEqual(['B', 'defender']);
+    expect(prioritizeB.units.map((u) => u.instanceId)).toEqual(['A']);
+    expect(resultB.conquered).toBe(true);
+  });
+
+  it('cannot override Tank priority — a Tank still goes first even if the hint orders it last', () => {
+    const tank = makeUnit({ instanceId: 'tank', controller: 'p2', might: 2, keywords: ['Tank'], combatRole: 'defending' });
+    const nonTank = makeUnit({ instanceId: 'nonTank', controller: 'p2', might: 5, combatRole: 'defending' });
+    const attacker = makeUnit({ instanceId: 'attacker', controller: 'p1', might: 2, combatRole: 'attacking' });
+    const state = makeGameState([attacker, tank, nonTank]);
+
+    // Hint tries to put the non-Tank first; Tank priority must still win.
+    const result = resolveCombat(state, 'bf1', { attackerDamageOrder: ['nonTank', 'tank'] });
+
+    expect(result.killed.sort()).toEqual(['attacker', 'tank']);
+    expect(state.units.map((u) => u.instanceId)).toEqual(['nonTank']);
+  });
+});

@@ -12,17 +12,25 @@ function isLethal(unit: UnitInPlay): boolean {
 }
 
 // Distributes `totalDamage` across `targets`, respecting the Tank keyword
-// (must receive lethal damage before any other unit) and the rule that a
-// unit must be assigned lethal damage in full before spreading to another.
-// Ties among equal-priority targets are broken by array order — this is a
-// simplification of the real "assigning player chooses" rule, adequate for
-// single-defender combats and as a deterministic default for now.
-function assignDamage(totalDamage: number, targets: UnitInPlay[]): void {
+// (must receive lethal damage before any other unit — rule 727.1.c) and the
+// rule that a unit must be assigned lethal damage in full before spreading
+// to another (rule 626.1.d.3). `preferredOrder` (instanceIds) is the
+// assigning player's choice of priority *within* a tier of equal-priority
+// targets (rule 627: "units with the same priority... may assign damage in
+// any order") — it can't move a target ahead of Tank units that outrank it,
+// only break ties among targets that are already equal priority. Targets
+// not named in `preferredOrder` keep their relative array order, so omitting
+// it entirely reproduces the old deterministic default.
+function assignDamage(totalDamage: number, targets: UnitInPlay[], preferredOrder?: string[]): void {
   let remaining = totalDamage;
+  const preferenceRank = new Map((preferredOrder ?? []).map((instanceId, i) => [instanceId, i]));
   const ordered = [...targets].sort((a, b) => {
     const aTank = a.keywords.includes('Tank') ? 0 : 1;
     const bTank = b.keywords.includes('Tank') ? 0 : 1;
-    return aTank - bTank;
+    if (aTank !== bTank) return aTank - bTank;
+    const aRank = preferenceRank.get(a.instanceId) ?? Infinity;
+    const bRank = preferenceRank.get(b.instanceId) ?? Infinity;
+    return aRank - bRank;
   });
 
   for (const target of ordered) {
@@ -34,10 +42,21 @@ function assignDamage(totalDamage: number, targets: UnitInPlay[]): void {
   }
 }
 
+export interface DamageOrders {
+  // Instance IDs, in the order the attacker/defender chooses to prioritize
+  // damage among their own equal-priority targets (see assignDamage above).
+  attackerDamageOrder?: string[];
+  defenderDamageOrder?: string[];
+}
+
 // Resolves combat at a single battlefield per rules 620-632: sum each side's
 // Might, assign damage simultaneously (attacker's total, then defender's
 // total), remove lethal units, then determine Recall vs Conquer.
-export function resolveCombat(state: GameState, battlefieldId: string): CombatResult {
+export function resolveCombat(
+  state: GameState,
+  battlefieldId: string,
+  orders: DamageOrders = {},
+): CombatResult {
   const battlefield = state.battlefields.find((b) => b.id === battlefieldId);
   if (!battlefield) throw new Error(`Unknown battlefield: ${battlefieldId}`);
 
@@ -51,8 +70,8 @@ export function resolveCombat(state: GameState, battlefieldId: string): CombatRe
   const attackerMight = attackers.reduce((sum, u) => sum + Math.max(u.might, 0), 0);
   const defenderMight = defenders.reduce((sum, u) => sum + Math.max(u.might, 0), 0);
 
-  assignDamage(attackerMight, defenders);
-  assignDamage(defenderMight, attackers);
+  assignDamage(attackerMight, defenders, orders.attackerDamageOrder);
+  assignDamage(defenderMight, attackers, orders.defenderDamageOrder);
 
   const killed = state.units.filter(
     (u) => u.location === battlefieldId && isLethal(u)

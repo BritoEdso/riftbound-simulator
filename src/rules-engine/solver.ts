@@ -2,10 +2,18 @@ import { resolveCombat } from "./combat";
 import { applyDiscipline, applyRetreat } from "./effects";
 import { findUnit } from "./queries";
 import { score, ScoreMethod } from "./scoring";
-import { GameState, PlayerId } from "./types";
+import { GameState, PlayerId, UnitInPlay } from "./types";
 
 export type Action =
-  | { type: "resolveCombat"; battlefieldId: string }
+  | {
+      type: "resolveCombat";
+      battlefieldId: string;
+      // The assigning player's chosen priority order among their own
+      // equal-priority targets (see combat.ts's assignDamage) — undefined
+      // when there's only 0 or 1 such target, so no real choice exists.
+      attackerDamageOrder?: string[];
+      defenderDamageOrder?: string[];
+    }
   | {
       type: "score";
       playerId: PlayerId;
@@ -15,12 +23,52 @@ export type Action =
   | { type: "playDiscipline"; targetInstanceId: string; playerId: string }
   | { type: "playRetreat"; targetInstanceId: string };
 
-function legalActions(state: GameState, playerId: PlayerId): Action[] {
+// All orderings of `items` — used to turn "which equal-priority target gets
+// damage first" into a set of distinct Actions for the search to try. Only
+// called with the handful of units on one side of one battlefield, so the
+// factorial blowup stays small in practice (same scope limit already noted
+// for the rest of the solver — see CLAUDE.md's "Not modeled yet").
+function permutations<T>(items: T[]): T[][] {
+  if (items.length <= 1) return [items];
+  return items.flatMap((item, i) => {
+    const rest = [...items.slice(0, i), ...items.slice(i + 1)];
+    return permutations(rest).map((p) => [item, ...p]);
+  });
+}
+
+// Orderings to try for one side's damage assignment: every permutation when
+// there's a real choice (more than one unit), or just "no preference" when
+// there isn't — avoids generating redundant identical actions for the
+// already-tested 1-unit-per-side case.
+function damageOrderOptions(units: UnitInPlay[]): (string[] | undefined)[] {
+  if (units.length <= 1) return [undefined];
+  return permutations(units.map((u) => u.instanceId));
+}
+
+// Exported for direct unit testing of its action-generation shape (e.g. the
+// damage-order permutation count) — canWin/SolveResult remain the intended
+// public surface for actually driving the solver.
+export function legalActions(state: GameState, playerId: PlayerId): Action[] {
   const combatActions: Action[] = state.battlefields
     .filter((bf) =>
       state.units.some((u) => u.location === bf.id && u.combatRole !== null),
     )
-    .map((bf) => ({ type: "resolveCombat", battlefieldId: bf.id }));
+    .flatMap((bf) => {
+      const attackers = state.units.filter(
+        (u) => u.location === bf.id && u.combatRole === "attacking",
+      );
+      const defenders = state.units.filter(
+        (u) => u.location === bf.id && u.combatRole === "defending",
+      );
+      return damageOrderOptions(attackers).flatMap((attackerDamageOrder) =>
+        damageOrderOptions(defenders).map((defenderDamageOrder) => ({
+          type: "resolveCombat" as const,
+          battlefieldId: bf.id,
+          attackerDamageOrder,
+          defenderDamageOrder,
+        })),
+      );
+    });
 
   const scoreActions: Action[] = state.battlefields
     .filter(
@@ -60,7 +108,10 @@ function applyAction(state: GameState, action: Action): GameState {
   const next = structuredClone(state);
   switch (action.type) {
     case "resolveCombat":
-      resolveCombat(next, action.battlefieldId);
+      resolveCombat(next, action.battlefieldId, {
+        attackerDamageOrder: action.attackerDamageOrder,
+        defenderDamageOrder: action.defenderDamageOrder,
+      });
       break;
     case "score":
       score(next, action.playerId, action.battlefieldId, action.method);
