@@ -123,6 +123,12 @@
   transform: rotate(90deg);
 }
 
+.poolSummary {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  color: var(--rift-accent);
+}
+
 /* --- battlefield: both players' units, split on either side of the name --- */
 .battlefield {
   display: flex;

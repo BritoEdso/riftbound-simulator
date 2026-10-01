@@ -67,6 +67,15 @@ export interface PlayerState {
   // Runes already channeled onto the board, each individually Ready or
   // Exhausted.
   runesInPlay: RuneInPlay[];
+  // The Rune Pool (rule 158): a conceptual stockpile of Energy/Power
+  // available to pay costs, filled by exhausting/Recycling Runes (see
+  // rune.ts) and spent via cost.ts. Energy has no Domain. Real rules empty
+  // this every phase/turn (rule 160.1) — not enforced here, since no
+  // turn/phase system exists yet; see cost.ts.
+  energyPool: number;
+  // Power has a Domain (rule 157.2.b.1), matching the Rune it came from,
+  // except 'Universal' Power which can pay a cost of any Domain (159.1).
+  powerPool: Partial<Record<Domain | 'Universal', number>>;
 }
 
 export interface GameState {

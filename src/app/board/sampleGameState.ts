@@ -43,6 +43,9 @@ export const SAMPLE_GAME_STATE: GameState = {
         makeRune('you-rune-3', 'Fury', true),
       ],
       runeDeck: ['Calm', 'Mind', 'Fury', 'Body', 'Chaos', 'Order', 'Calm', 'Mind'],
+      // The exhausted Mind rune above already paid for this Energy.
+      energyPool: 1,
+      powerPool: {},
     },
     [OPPONENT_PLAYER_ID]: {
       id: OPPONENT_PLAYER_ID,
@@ -56,6 +59,9 @@ export const SAMPLE_GAME_STATE: GameState = {
         makeRune('opp-rune-2', 'Order', false),
       ],
       runeDeck: ['Body', 'Chaos', 'Order', 'Body', 'Chaos', 'Order', 'Body', 'Chaos', 'Order'],
+      // The exhausted Order rune above already paid for this Energy.
+      energyPool: 1,
+      powerPool: {},
     },
   },
   battlefields: [

@@ -17,7 +17,18 @@ const DOMAIN_COLOR: Record<Domain, string> = {
   Order: "#c0b84d",
 };
 
-function RunePool({ label, runes }: { label: string; runes: RuneInPlay[] }) {
+function RunePool({
+  label,
+  runes,
+  energyPool,
+  powerPool,
+}: {
+  label: string;
+  runes: RuneInPlay[];
+  energyPool: number;
+  powerPool: Partial<Record<Domain | "Universal", number>>;
+}) {
+  const powerEntries = Object.entries(powerPool).filter(([, amount]) => (amount ?? 0) > 0);
   return (
     <div className={`${styles.zone} ${styles.zoneAccent}`}>
       <span className={styles.zoneLabel}>
@@ -36,6 +47,13 @@ function RunePool({ label, runes }: { label: string; runes: RuneInPlay[] }) {
           );
         })}
       </div>
+      {/* Rule 158: the Rune Pool itself — Energy/Power available to pay
+          costs, produced by exhausting/Recycling the runes above. */}
+      <span className={styles.poolSummary}>
+        {energyPool} Energy
+        {powerEntries.length > 0 &&
+          " · " + powerEntries.map(([domain, amount]) => `${amount} ${domain} Power`).join(", ")}
+      </span>
     </div>
   );
 }
@@ -160,7 +178,12 @@ export default function BoardPage() {
         <DeckCount label="Rune Deck" count={opponent.runeDeck.length} />
       </div>
       <div className={styles.oppRunePool}>
-        <RunePool label="Rune Pool" runes={opponent.runesInPlay} />
+        <RunePool
+          label="Rune Pool"
+          runes={opponent.runesInPlay}
+          energyPool={opponent.energyPool}
+          powerPool={opponent.powerPool}
+        />
       </div>
 
       <div className={`${styles.zone} ${styles.zoneAccent} ${styles.oppChampion}`}>
@@ -209,7 +232,12 @@ export default function BoardPage() {
       </div>
 
       <div className={styles.youRunePool}>
-        <RunePool label="Rune Pool" runes={you.runesInPlay} />
+        <RunePool
+          label="Rune Pool"
+          runes={you.runesInPlay}
+          energyPool={you.energyPool}
+          powerPool={you.powerPool}
+        />
       </div>
       <div className={styles.youRuneDeck}>
         <DeckCount label="Rune Deck" count={you.runeDeck.length} />

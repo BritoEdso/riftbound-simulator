@@ -33,8 +33,8 @@ function makeGameState(units: UnitInPlay[]): GameState {
     turnPlayer: "p1",
     victoryScore: 8,
     players: {
-      p1: { id: "p1", points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [] },
-      p2: { id: "p2", points: 7, hand: [], deck: [], runeDeck: [], runesInPlay: [] },
+      p1: { id: "p1", points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {} },
+      p2: { id: "p2", points: 7, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {} },
     },
     battlefields: [
       { id: "bf1", controller: "p2", contested: true, scoredByThisTurn: [] },
@@ -63,6 +63,10 @@ describe("the example scenario: 5-Might attacker vs 6-Might defender", () => {
     state.players.p1.deck = [makeCard("draw-card")];
     state.players.p1.points = 7;
     state.players.p1.hand = [makeCard("OGN-058")];
+    // Discipline costs 2 Energy — pre-filled here since this test is about
+    // combat/scoring, not the Energy-generation mechanic (see the dedicated
+    // "Energy costs" describe block below for that).
+    state.players.p1.energyPool = 2;
 
     const result = canWin(state, "p1");
     expect(result.won).toBe(true);
@@ -87,6 +91,55 @@ describe("the example scenario: 5-Might attacker vs 6-Might defender", () => {
     state.players.p1.points = 7;
 
     const result = canWin(state, "p1");
+    expect(result.won).toBe(false);
+  });
+});
+
+describe("Energy costs gate playing a card (rule 596.1)", () => {
+  function makeFightState() {
+    const attacker = makeUnit({
+      instanceId: "attacker",
+      controller: "p1",
+      baseMight: 5,
+      might: 5,
+      combatRole: "attacking",
+    });
+    const defender = makeUnit({
+      instanceId: "defender",
+      controller: "p2",
+      baseMight: 6,
+      might: 6,
+      combatRole: "defending",
+    });
+    const state = makeGameState([attacker, defender]);
+    state.players.p1.deck = [makeCard("draw-card")];
+    state.players.p1.points = 7;
+    state.players.p1.hand = [makeCard("OGN-058")]; // Discipline, costs 2 Energy
+    return state;
+  }
+
+  it("finds a line that exhausts Ready runes to afford Discipline's Energy cost from zero", () => {
+    const state = makeFightState();
+    state.players.p1.runesInPlay = [
+      { instanceId: "r1", domain: "Calm", ready: true },
+      { instanceId: "r2", domain: "Fury", ready: true },
+    ];
+
+    const result = canWin(state, "p1");
+
+    expect(result.won).toBe(true);
+    const exhaustCount = result.line.filter((a) => a.type === "exhaustRuneForEnergy").length;
+    expect(exhaustCount).toBe(2); // Discipline costs 2 Energy, each rune gives 1
+    expect(result.line.some((a) => a.type === "playDiscipline")).toBe(true);
+  });
+
+  it("reports no win when Discipline is in hand but there isn't enough Energy available", () => {
+    const state = makeFightState();
+    // Only 1 Ready rune — 1 Energy is short of Discipline's cost of 2.
+    state.players.p1.runesInPlay = [{ instanceId: "r1", domain: "Calm", ready: true }];
+
+    const result = canWin(state, "p1");
+
     expect(result.won).toBe(false);
   });
 });

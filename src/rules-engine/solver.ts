@@ -1,6 +1,9 @@
+import { CARD_DEFINITIONS } from "./cards";
 import { resolveCombat } from "./combat";
+import { canAffordEnergyCost, payEnergyCost } from "./cost";
 import { applyDiscipline, applyRetreat } from "./effects";
 import { findUnit } from "./queries";
+import { exhaustRuneForEnergy } from "./rune";
 import { score, ScoreMethod } from "./scoring";
 import { GameState, PlayerId, UnitInPlay } from "./types";
 
@@ -21,7 +24,8 @@ export type Action =
       method: ScoreMethod;
     }
   | { type: "playDiscipline"; targetInstanceId: string; playerId: string }
-  | { type: "playRetreat"; targetInstanceId: string };
+  | { type: "playRetreat"; targetInstanceId: string }
+  | { type: "exhaustRuneForEnergy"; playerId: PlayerId; runeInstanceId: string };
 
 // All orderings of `items` — used to turn "which equal-priority target gets
 // damage first" into a set of distinct Actions for the search to try. Only
@@ -80,20 +84,35 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
       { type: "score", playerId, battlefieldId: bf.id, method: "conquer" },
     ]);
 
+  const canAffordRetreat =
+    state.players[playerId].hand.some((c) => c.id === "OGN-104") &&
+    canAffordEnergyCost(state, playerId, CARD_DEFINITIONS["OGN-104"]);
   const retreatActions: Action[] = state.units
-    .filter(
-      (u) =>
-        u.controller === playerId &&
-        state.players[playerId].hand.some((c) => c.id === "OGN-104"),
-    )
+    .filter((u) => u.controller === playerId && canAffordRetreat)
     .map((u) => ({ type: "playRetreat", targetInstanceId: u.instanceId }));
 
+  const canAffordDiscipline =
+    state.players[playerId].hand.some((c) => c.id === "OGN-058") &&
+    canAffordEnergyCost(state, playerId, CARD_DEFINITIONS["OGN-058"]);
   const disciplineActions: Action[] = state.units
-    .filter(() => state.players[playerId].hand.some((c) => c.id === "OGN-058"))
+    .filter(() => canAffordDiscipline)
     .map((u) => ({
       type: "playDiscipline",
       targetInstanceId: u.instanceId,
       playerId,
+    }));
+
+  // Exhausting a Ready rune for Energy (rule 156.2.a's "[T]: Add [1]") is how
+  // the solver discovers it can afford Discipline/Retreat even when
+  // energyPool starts short. Recycling a rune for Power isn't offered here —
+  // no CardDefinition has a non-empty powerCost yet (see cost.ts), so it
+  // would only ever be a dead branch, bloating the search for nothing.
+  const exhaustRuneActions: Action[] = state.players[playerId].runesInPlay
+    .filter((r) => r.ready)
+    .map((r) => ({
+      type: "exhaustRuneForEnergy",
+      playerId,
+      runeInstanceId: r.instanceId,
     }));
 
   return [
@@ -101,6 +120,7 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
     ...scoreActions,
     ...retreatActions,
     ...disciplineActions,
+    ...exhaustRuneActions,
   ];
 }
 
@@ -117,13 +137,18 @@ function applyAction(state: GameState, action: Action): GameState {
       score(next, action.playerId, action.battlefieldId, action.method);
       break;
     case "playDiscipline":
+      payEnergyCost(next, action.playerId, CARD_DEFINITIONS["OGN-058"]);
       removeCardFromHand(next, action.playerId, "OGN-058");
       applyDiscipline(next, action.targetInstanceId, action.playerId);
       break;
     case "playRetreat":
       const targetUnit = findUnit(next, action.targetInstanceId);
+      payEnergyCost(next, targetUnit.controller, CARD_DEFINITIONS["OGN-104"]);
       removeCardFromHand(next, targetUnit.controller, "OGN-104");
       applyRetreat(next, action.targetInstanceId);
+      break;
+    case "exhaustRuneForEnergy":
+      exhaustRuneForEnergy(next, action.playerId, action.runeInstanceId);
       break;
   }
   return next;
