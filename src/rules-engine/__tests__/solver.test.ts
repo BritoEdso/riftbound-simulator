@@ -203,6 +203,82 @@ describe("Energy costs gate playing a card (rule 596.1)", () => {
   });
 });
 
+describe("Power costs gate playing a card too, and can be the deciding resource for canWin", () => {
+  function makeOverwhelmedState() {
+    // Attacker (Might 1) can't beat the defender (Might 3) in open combat —
+    // it would deal 1 (not enough) and take 3 back (lethal, dies). Hextech
+    // Ray (Energy 1, Power 1 Fury) can kill the Might-3 defender outright
+    // before any combat damage is exchanged, so the weak attacker then
+    // "wins" an empty battlefield unopposed. This isolates Power
+    // specifically: Hextech Ray's Energy half (1) is trivial, but its Power
+    // half requires a *second* rune (Recycled, not just Exhausted).
+    const attacker = makeUnit({
+      instanceId: "attacker",
+      controller: "p1",
+      might: 1,
+      combatRole: "attacking",
+    });
+    const defender = makeUnit({
+      instanceId: "defender",
+      controller: "p2",
+      might: 3,
+      combatRole: "defending",
+    });
+    const state = makeGameState([attacker, defender]);
+    state.players.p1.points = 7;
+    state.players.p1.hand = [CARD_DEFINITIONS["OGN-009"]]; // Hextech Ray
+    return state;
+  }
+
+  it("finds the line: generate Energy and Power from separate Runes, Hextech Ray the defender dead, then conquer unopposed", () => {
+    const state = makeOverwhelmedState();
+    state.players.p1.runesInPlay = [
+      { instanceId: "r1", domain: "Fury", ready: true },
+      { instanceId: "r2", domain: "Fury", ready: true },
+    ];
+
+    const result = canWin(state, "p1");
+
+    expect(result.won).toBe(true);
+    expect(result.line.some((a) => a.type === "exhaustRuneForEnergy")).toBe(true);
+    expect(result.line.some((a) => a.type === "recycleRuneForPower")).toBe(true);
+    expect(result.line.some((a) => a.type === "playHextechRay" && a.targetInstanceId === "defender")).toBe(true);
+  });
+
+  it("a single Rune is actually enough — Exhaust it for Energy, then Recycle the now-Exhausted Rune for Power (Recycle doesn't require Ready)", () => {
+    const state = makeOverwhelmedState();
+    state.players.p1.runesInPlay = [{ instanceId: "r1", domain: "Fury", ready: true }];
+
+    const result = canWin(state, "p1");
+
+    expect(result.won).toBe(true);
+  });
+
+  it("can't win with zero Runes — no way to generate either Energy or Power", () => {
+    const state = makeOverwhelmedState();
+    state.players.p1.runesInPlay = [];
+
+    const result = canWin(state, "p1");
+
+    expect(result.won).toBe(false);
+  });
+
+  it("can't win with 2 Runes of a different Domain — Universal Power only comes from the Rune Pool, not substitution", () => {
+    const state = makeOverwhelmedState();
+    // 2 ready runes is enough Energy-wise, but Hextech Ray needs Fury Power
+    // specifically and neither rune is Fury, nor is there any Universal
+    // Power available to cover the shortfall.
+    state.players.p1.runesInPlay = [
+      { instanceId: "r1", domain: "Calm", ready: true },
+      { instanceId: "r2", domain: "Mind", ready: true },
+    ];
+
+    const result = canWin(state, "p1");
+
+    expect(result.won).toBe(false);
+  });
+});
+
 describe("played Spells are placed in their owner's Trash, not just removed from hand (rule 559)", () => {
   it("playDiscipline trashes Discipline after it resolves", () => {
     const attacker = makeUnit({ instanceId: "attacker", controller: "p1", might: 1, combatRole: null });

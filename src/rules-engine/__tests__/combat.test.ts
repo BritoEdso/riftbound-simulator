@@ -1,6 +1,6 @@
 import { CARD_DEFINITIONS } from '../cards';
 import { resolveCombat } from '../combat';
-import { applyDiscipline } from '../effects';
+import { applyDiscipline, applyHextechRay } from '../effects';
 import { score } from '../scoring';
 import { CardDefinition, GameState, UnitInPlay } from '../types';
 
@@ -229,5 +229,35 @@ describe('killed Units are placed in their owner\'s Trash (rule 524.1/525)', () 
     resolveCombat(state, 'bf1');
 
     expect(state.players.p2.trash).toEqual([]);
+  });
+});
+
+describe('applyHextechRay (OGN-009): "Deal 3 to a unit at a battlefield."', () => {
+  it('deals 3 damage to the target', () => {
+    const unit = makeUnit({ instanceId: 'u1', controller: 'p2', might: 10 });
+    const state = makeGameState([unit]);
+
+    applyHextechRay(state, 'u1');
+
+    expect(unit.damage).toBe(3);
+  });
+
+  it('kills the target outright (via Cleanup, rule 522) when 3 damage is lethal', () => {
+    const unit = makeUnit({ instanceId: 'u1', cardId: 'OGN-011', controller: 'p2', might: 3 });
+    const state = makeGameState([unit]);
+
+    applyHextechRay(state, 'u1');
+
+    expect(state.units).toEqual([]);
+    expect(state.players.p2.trash).toEqual([CARD_DEFINITIONS['OGN-011']]);
+  });
+
+  it('leaves a unit with more Might than the damage dealt alive', () => {
+    const unit = makeUnit({ instanceId: 'u1', controller: 'p2', might: 4 });
+    const state = makeGameState([unit]);
+
+    applyHextechRay(state, 'u1');
+
+    expect(state.units).toEqual([unit]);
   });
 });

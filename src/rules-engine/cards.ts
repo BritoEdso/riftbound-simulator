@@ -5,8 +5,8 @@ import { CardDefinition } from './types';
 // not a fan site. OGN-058/OGN-104 below predate that decision being written
 // down and their original source is disputed/unverified — see the
 // "Inconsistency to resolve" note in CLAUDE.md's Card data section; don't
-// treat either claim about them as settled. OGN-011 was transcribed directly
-// from the official gallery.
+// treat either claim about them as settled. OGN-011 and OGN-009 were
+// transcribed directly from the official gallery.
 export const CARD_DEFINITIONS: Record<string, CardDefinition> = {
   'OGN-058': {
     id: 'OGN-058',
@@ -38,5 +38,15 @@ export const CARD_DEFINITIONS: Record<string, CardDefinition> = {
     might: 8,
     keywords: [],
     rulesText: 'Other friendly units enter ready.',
+  },
+  'OGN-009': {
+    id: 'OGN-009',
+    name: 'Hextech Ray',
+    type: 'Spell',
+    domains: ['Fury'],
+    energyCost: 1,
+    powerCost: { Fury: 1 },
+    keywords: ['Action'],
+    rulesText: 'Deal 3 to a unit at a battlefield.',
   },
 };

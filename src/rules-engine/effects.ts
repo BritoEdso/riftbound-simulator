@@ -1,5 +1,7 @@
 import { CARD_DEFINITIONS } from './cards';
+import { cleanupLethalUnits } from './cleanup';
 import { draw } from './deck';
+import { findUnit } from './queries';
 import { channel } from './rune';
 import { GameState } from './types';
 
@@ -28,4 +30,14 @@ export function applyRetreat(state: GameState, targetInstanceId: string): void {
   }
   // "Its owner channels 1 rune exhausted" (rule 606).
   channel(state, unit.controller, 1, false);
+}
+
+// Hextech Ray (OGN-009): "Deal 3 to a unit at a battlefield."
+export function applyHextechRay(state: GameState, targetInstanceId: string): void {
+  const unit = findUnit(state, targetInstanceId);
+  unit.damage += 3;
+  // Rule 522: a Cleanup occurs after an item on the Chain resolves — this
+  // project doesn't model the Chain, so trigger it directly here rather
+  // than waiting for the next Combat to happen to notice the lethal damage.
+  cleanupLethalUnits(state);
 }

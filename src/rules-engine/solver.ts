@@ -1,7 +1,7 @@
 import { CARD_DEFINITIONS } from "./cards";
 import { resolveCombat } from "./combat";
 import { canAffordCost, payCost } from "./cost";
-import { applyDiscipline, applyRetreat } from "./effects";
+import { applyDiscipline, applyHextechRay, applyRetreat } from "./effects";
 import { findUnit } from "./queries";
 import { moveUnit } from "./movement";
 import { exhaustRuneForEnergy, recycleRuneForPower } from "./rune";
@@ -26,6 +26,7 @@ export type Action =
     }
   | { type: "playDiscipline"; targetInstanceId: string; playerId: string }
   | { type: "playRetreat"; targetInstanceId: string }
+  | { type: "playHextechRay"; targetInstanceId: string; playerId: string }
   | { type: "exhaustRuneForEnergy"; playerId: PlayerId; runeInstanceId: string }
   | { type: "recycleRuneForPower"; playerId: PlayerId; runeInstanceId: string }
   | {
@@ -116,6 +117,20 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
       playerId,
     }));
 
+  // "Deal 3 to a unit at a battlefield" — restricted to units whose
+  // location is a battlefield, not 'base'. Unrestricted by controller, same
+  // permissiveness as Discipline's targeting.
+  const canAffordHextechRay =
+    state.players[playerId].hand.some((c) => c.id === "OGN-009") &&
+    canAffordCost(state, playerId, CARD_DEFINITIONS["OGN-009"]);
+  const hextechRayActions: Action[] = state.units
+    .filter((u) => canAffordHextechRay && u.location !== "base")
+    .map((u) => ({
+      type: "playHextechRay",
+      targetInstanceId: u.instanceId,
+      playerId,
+    }));
+
   // Exhausting a Ready rune for Energy (rule 156.2.a's "[T]: Add [1]") is how
   // the solver discovers it can afford a card's Energy cost even when
   // energyPool starts short.
@@ -188,6 +203,7 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
     ...scoreActions,
     ...retreatActions,
     ...disciplineActions,
+    ...hextechRayActions,
     ...exhaustRuneActions,
     ...recycleRuneActions,
     ...playUnitActions,
@@ -221,6 +237,11 @@ export function applyAction(state: GameState, action: Action): GameState {
       payCost(next, targetUnit.controller, CARD_DEFINITIONS["OGN-104"]);
       moveCardFromHandToTrash(next, targetUnit.controller, "OGN-104");
       applyRetreat(next, action.targetInstanceId);
+      break;
+    case "playHextechRay":
+      payCost(next, action.playerId, CARD_DEFINITIONS["OGN-009"]);
+      moveCardFromHandToTrash(next, action.playerId, "OGN-009");
+      applyHextechRay(next, action.targetInstanceId);
       break;
     case "exhaustRuneForEnergy":
       exhaustRuneForEnergy(next, action.playerId, action.runeInstanceId);

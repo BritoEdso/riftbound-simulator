@@ -1,4 +1,4 @@
-import { CARD_DEFINITIONS } from './cards';
+import { cleanupLethalUnits } from './cleanup';
 import { GameState, UnitInPlay } from './types';
 
 export interface CombatResult {
@@ -6,10 +6,6 @@ export interface CombatResult {
   killed: string[]; // instanceIds removed from play
   conquered: boolean;
   newController: string | null;
-}
-
-function isLethal(unit: UnitInPlay): boolean {
-  return unit.damage > 0 && unit.damage >= unit.might;
 }
 
 // Distributes `totalDamage` across `targets`, respecting the Tank keyword
@@ -74,23 +70,11 @@ export function resolveCombat(
   assignDamage(attackerMight, defenders, orders.attackerDamageOrder);
   assignDamage(defenderMight, attackers, orders.defenderDamageOrder);
 
-  const killed = state.units.filter(
-    (u) => u.location === battlefieldId && isLethal(u)
-  );
+  // cleanupLethalUnits checks and trashes lethal Units state-wide (rule
+  // 524.1/525's Cleanup isn't scoped to one battlefield) — filtered back
+  // down to just this battlefield for CombatResult's own narrower contract.
+  const killed = cleanupLethalUnits(state).filter((u) => u.location === battlefieldId);
   const killedIds = killed.map((u) => u.instanceId);
-  state.units = state.units.filter((u) => !killedIds.includes(u.instanceId));
-
-  // Rule 524.1/525: killed Units are placed in their owner's Trash. Only
-  // applies when the Unit's cardId is a real, registered CardDefinition —
-  // test/sample fixtures routinely use placeholder ids ('test-card',
-  // 'sample-unit') that aren't in CARD_DEFINITIONS, same convention
-  // effects.ts's applyRetreat already follows for its hand-return.
-  for (const unit of killed) {
-    const cardDefinition = CARD_DEFINITIONS[unit.cardId];
-    if (cardDefinition) {
-      state.players[unit.controller].trash.push(cardDefinition);
-    }
-  }
 
   const survivingAttackers = state.units.filter(
     (u) => u.location === battlefieldId && u.combatRole === 'attacking'
