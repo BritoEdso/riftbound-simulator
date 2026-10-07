@@ -2,6 +2,11 @@ export type Domain = 'Fury' | 'Calm' | 'Mind' | 'Body' | 'Chaos' | 'Order';
 
 export type CardType = 'Unit' | 'Gear' | 'Spell' | 'Rune' | 'Battlefield' | 'Legend';
 
+// Power has a Domain (rule 157.2.b.1) except 'Universal' Power, which can
+// pay a cost of any Domain (rule 159.1). Shared shape for both a card's
+// powerCost and a player's powerPool — see cost.ts.
+export type PowerPool = Partial<Record<Domain | 'Universal', number>>;
+
 export type PlayerId = string;
 
 // Static, printed card data — one entry per unique card name/id.
@@ -13,7 +18,7 @@ export interface CardDefinition {
   type: CardType;
   domains: Domain[];
   energyCost: number;
-  powerCost: Partial<Record<Domain | 'Universal', number>>;
+  powerCost: PowerPool;
   might?: number;
   keywords: string[];
   rulesText: string;
@@ -73,9 +78,9 @@ export interface PlayerState {
   // this every phase/turn (rule 160.1) — not enforced here, since no
   // turn/phase system exists yet; see cost.ts.
   energyPool: number;
-  // Power has a Domain (rule 157.2.b.1), matching the Rune it came from,
-  // except 'Universal' Power which can pay a cost of any Domain (159.1).
-  powerPool: Partial<Record<Domain | 'Universal', number>>;
+  // Power's Domain usually matches the Rune it came from (158) — see
+  // PowerPool above.
+  powerPool: PowerPool;
 }
 
 export interface GameState {

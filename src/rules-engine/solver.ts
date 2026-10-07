@@ -1,6 +1,6 @@
 import { CARD_DEFINITIONS } from "./cards";
 import { resolveCombat } from "./combat";
-import { canAffordEnergyCost, payEnergyCost } from "./cost";
+import { canAffordCost, payCost } from "./cost";
 import { applyDiscipline, applyRetreat } from "./effects";
 import { findUnit } from "./queries";
 import { exhaustRuneForEnergy } from "./rune";
@@ -86,14 +86,14 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
 
   const canAffordRetreat =
     state.players[playerId].hand.some((c) => c.id === "OGN-104") &&
-    canAffordEnergyCost(state, playerId, CARD_DEFINITIONS["OGN-104"]);
+    canAffordCost(state, playerId, CARD_DEFINITIONS["OGN-104"]);
   const retreatActions: Action[] = state.units
     .filter((u) => u.controller === playerId && canAffordRetreat)
     .map((u) => ({ type: "playRetreat", targetInstanceId: u.instanceId }));
 
   const canAffordDiscipline =
     state.players[playerId].hand.some((c) => c.id === "OGN-058") &&
-    canAffordEnergyCost(state, playerId, CARD_DEFINITIONS["OGN-058"]);
+    canAffordCost(state, playerId, CARD_DEFINITIONS["OGN-058"]);
   const disciplineActions: Action[] = state.units
     .filter(() => canAffordDiscipline)
     .map((u) => ({
@@ -137,13 +137,13 @@ function applyAction(state: GameState, action: Action): GameState {
       score(next, action.playerId, action.battlefieldId, action.method);
       break;
     case "playDiscipline":
-      payEnergyCost(next, action.playerId, CARD_DEFINITIONS["OGN-058"]);
+      payCost(next, action.playerId, CARD_DEFINITIONS["OGN-058"]);
       removeCardFromHand(next, action.playerId, "OGN-058");
       applyDiscipline(next, action.targetInstanceId, action.playerId);
       break;
     case "playRetreat":
       const targetUnit = findUnit(next, action.targetInstanceId);
-      payEnergyCost(next, targetUnit.controller, CARD_DEFINITIONS["OGN-104"]);
+      payCost(next, targetUnit.controller, CARD_DEFINITIONS["OGN-104"]);
       removeCardFromHand(next, targetUnit.controller, "OGN-104");
       applyRetreat(next, action.targetInstanceId);
       break;
