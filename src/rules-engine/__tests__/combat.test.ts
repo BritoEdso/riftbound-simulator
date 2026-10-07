@@ -27,6 +27,7 @@ function makeUnit(overrides: Partial<UnitInPlay>): UnitInPlay {
     damage: overrides.damage ?? 0,
     keywords: overrides.keywords ?? [],
     combatRole: overrides.combatRole ?? null,
+    ready: overrides.ready ?? true,
   };
 }
 

@@ -79,6 +79,7 @@ export const SAMPLE_GAME_STATE: GameState = {
       damage: 0,
       keywords: [],
       combatRole: 'attacking',
+      ready: false,
     },
     {
       instanceId: 'defender',
@@ -90,6 +91,7 @@ export const SAMPLE_GAME_STATE: GameState = {
       damage: 0,
       keywords: ['Tank'],
       combatRole: 'defending',
+      ready: false,
     },
     {
       instanceId: 'holder',
@@ -101,6 +103,7 @@ export const SAMPLE_GAME_STATE: GameState = {
       damage: 0,
       keywords: [],
       combatRole: null,
+      ready: true,
     },
   ],
 };

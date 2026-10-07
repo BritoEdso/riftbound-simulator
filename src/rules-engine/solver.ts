@@ -3,6 +3,7 @@ import { resolveCombat } from "./combat";
 import { canAffordCost, payCost } from "./cost";
 import { applyDiscipline, applyRetreat } from "./effects";
 import { findUnit } from "./queries";
+import { moveUnit } from "./movement";
 import { exhaustRuneForEnergy, recycleRuneForPower } from "./rune";
 import { score, ScoreMethod } from "./scoring";
 import { GameState, PlayerId, UnitInPlay } from "./types";
@@ -37,7 +38,8 @@ export type Action =
       // Rule 719.1.d.1: a Unit can only be played to its controller's base
       // or a battlefield they already control.
       location: string;
-    };
+    }
+  | { type: "moveUnit"; unitInstanceId: string; destination: string };
 
 // All orderings of `items` — used to turn "which equal-priority target gets
 // damage first" into a set of distinct Actions for the search to try. Only
@@ -165,6 +167,22 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
     })),
   );
 
+  // Rule 140-141 — Standard Move: a Ready Unit can exhaust itself to move
+  // from its current location to any other base/battlefield. This is what
+  // lets the solver actually get a Unit into combat — see movement.ts for
+  // what happens to combatRole/Contested status when it arrives.
+  const moveUnitActions: Action[] = state.units
+    .filter((u) => u.controller === playerId && u.ready)
+    .flatMap((u) =>
+      ["base", ...state.battlefields.map((bf) => bf.id)]
+        .filter((destination) => destination !== u.location)
+        .map((destination) => ({
+          type: "moveUnit" as const,
+          unitInstanceId: u.instanceId,
+          destination,
+        })),
+    );
+
   return [
     ...combatActions,
     ...scoreActions,
@@ -173,6 +191,7 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
     ...exhaustRuneActions,
     ...recycleRuneActions,
     ...playUnitActions,
+    ...moveUnitActions,
   ];
 }
 
@@ -226,9 +245,13 @@ export function applyAction(state: GameState, action: Action): GameState {
         damage: 0,
         keywords: [...card.keywords],
         combatRole: null,
+        ready: false, // Rule 139.4: Units enter the Board Exhausted.
       });
       break;
     }
+    case "moveUnit":
+      moveUnit(next, action.unitInstanceId, action.destination);
+      break;
   }
   return next;
 }

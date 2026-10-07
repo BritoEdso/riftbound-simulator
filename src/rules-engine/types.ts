@@ -38,6 +38,14 @@ export interface UnitInPlay {
   damage: number;
   keywords: string[];
   combatRole: 'attacking' | 'defending' | null;
+  // Rule 139.4: Units enter the Board Exhausted (ready: false) by default —
+  // Accelerate (rule 717, no CardDefinition has it yet) is the only thing
+  // that changes that. Standard Move (rule 140 — see movement.ts) costs
+  // Exhausting the Unit, so a freshly played Unit can't immediately move;
+  // nothing in this engine currently readies a Unit back (no Ready Step —
+  // no turn/phase system exists yet), matching the Rune Pool's own
+  // never-empties limitation.
+  ready: boolean;
 }
 
 // A Rune channeled onto the board (rule 606 — Channel), tracking whether

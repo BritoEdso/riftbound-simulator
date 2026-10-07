@@ -26,6 +26,7 @@ function makeUnit(overrides: Partial<UnitInPlay>): UnitInPlay {
     damage: overrides.damage ?? 0,
     keywords: overrides.keywords ?? [],
     combatRole: overrides.combatRole ?? null,
+    ready: overrides.ready ?? true,
   };
 }
 
@@ -92,6 +93,63 @@ describe("the example scenario: 5-Might attacker vs 6-Might defender", () => {
     state.players.p1.points = 7;
 
     const result = canWin(state, "p1");
+    expect(result.won).toBe(false);
+  });
+});
+
+describe("moveUnit is what gets a Unit into combat at all (rule 140-141)", () => {
+  function makeUndeclaredFightState() {
+    // Same 5-Might-vs-6-Might shape as "the example scenario" above, but
+    // nobody has been declared Attacker/Defender yet — the attacker starts
+    // at base, Ready, and canWin has to discover moveUnit is the first step.
+    const attacker = makeUnit({
+      instanceId: "attacker",
+      controller: "p1",
+      location: "base",
+      baseMight: 5,
+      might: 5,
+      combatRole: null,
+      ready: true,
+    });
+    const defender = makeUnit({
+      instanceId: "defender",
+      controller: "p2",
+      location: "bf1",
+      baseMight: 6,
+      might: 6,
+      combatRole: null,
+      ready: true,
+    });
+    const state = makeGameState([attacker, defender]);
+    state.players.p1.deck = [makeCard("draw-card")];
+    state.players.p1.points = 7;
+    state.players.p1.hand = [makeCard("OGN-058")]; // Discipline
+    state.players.p1.energyPool = 2;
+    return state;
+  }
+
+  it("finds the line: move to attack, then Discipline, combat, and score", () => {
+    const state = makeUndeclaredFightState();
+
+    const result = canWin(state, "p1");
+
+    expect(result.won).toBe(true);
+    // DFS tries actions in legalActions' order, so the winning line it finds
+    // first isn't necessarily "move, then everything else" — playDiscipline
+    // is offered before moveUnit and buffing the attacker before it moves
+    // also leads to a win. What's actually being proven here is that *some*
+    // moveUnit is required at all: without one, no unit's combatRole is
+    // ever set, so resolveCombat is never even legalActions-eligible.
+    expect(result.line.some((a) => a.type === "moveUnit" && a.unitInstanceId === "attacker")).toBe(true);
+    expect(result.line.some((a) => a.type === "resolveCombat")).toBe(true);
+  });
+
+  it("can't win if the attacker is already Exhausted and so can never move to attack", () => {
+    const state = makeUndeclaredFightState();
+    state.units[0].ready = false; // the attacker, specifically
+
+    const result = canWin(state, "p1");
+
     expect(result.won).toBe(false);
   });
 });
@@ -242,6 +300,7 @@ describe("playUnit (rule 719.1.d.1: base or a battlefield you control)", () => {
         damage: 0,
         keywords: [],
         combatRole: null,
+        ready: false, // rule 139.4 — enters Exhausted
       },
     ]);
     expect(next.players.p1.hand).toEqual([]);
