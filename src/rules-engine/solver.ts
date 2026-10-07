@@ -213,13 +213,13 @@ export function applyAction(state: GameState, action: Action): GameState {
       break;
     case "playDiscipline":
       payCost(next, action.playerId, CARD_DEFINITIONS["OGN-058"]);
-      removeCardFromHand(next, action.playerId, "OGN-058");
+      moveCardFromHandToTrash(next, action.playerId, "OGN-058");
       applyDiscipline(next, action.targetInstanceId, action.playerId);
       break;
     case "playRetreat":
       const targetUnit = findUnit(next, action.targetInstanceId);
       payCost(next, targetUnit.controller, CARD_DEFINITIONS["OGN-104"]);
-      removeCardFromHand(next, targetUnit.controller, "OGN-104");
+      moveCardFromHandToTrash(next, targetUnit.controller, "OGN-104");
       applyRetreat(next, action.targetInstanceId);
       break;
     case "exhaustRuneForEnergy":
@@ -279,6 +279,7 @@ export function canWin(
   return { won: false, line: [] };
 }
 
+// Used by playUnit: the card leaves hand to become a UnitInPlay, not Trash.
 function removeCardFromHand(
   state: GameState,
   playerId: PlayerId,
@@ -287,4 +288,19 @@ function removeCardFromHand(
   const hand = state.players[playerId].hand;
   const cardIndex = hand.findIndex((c) => c.id === cardId);
   hand.splice(cardIndex, 1);
+}
+
+// Used by playDiscipline/playRetreat: Spells are placed in their owner's
+// Trash once played (rule 559), unlike a played Unit.
+function moveCardFromHandToTrash(
+  state: GameState,
+  playerId: PlayerId,
+  cardId: string,
+): void {
+  const hand = state.players[playerId].hand;
+  const cardIndex = hand.findIndex((c) => c.id === cardId);
+  const [card] = hand.splice(cardIndex, 1);
+  if (card) {
+    state.players[playerId].trash.push(card);
+  }
 }

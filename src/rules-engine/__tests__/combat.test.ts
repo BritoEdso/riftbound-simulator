@@ -1,3 +1,4 @@
+import { CARD_DEFINITIONS } from '../cards';
 import { resolveCombat } from '../combat';
 import { applyDiscipline } from '../effects';
 import { score } from '../scoring';
@@ -36,8 +37,8 @@ function makeGameState(units: UnitInPlay[]): GameState {
     turnPlayer: 'p1',
     victoryScore: 8,
     players: {
-      p1: { id: 'p1', points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {} },
-      p2: { id: 'p2', points: 7, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {} },
+      p1: { id: 'p1', points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },
+      p2: { id: 'p2', points: 7, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },
     },
     battlefields: [{ id: 'bf1', controller: 'p2', contested: true, scoredByThisTurn: [] }],
     units,
@@ -193,5 +194,40 @@ describe('damage assignment order (rule 627: equal-priority targets, assigning p
 
     expect(result.killed.sort()).toEqual(['attacker', 'tank']);
     expect(state.units.map((u) => u.instanceId)).toEqual(['nonTank']);
+  });
+});
+
+describe('killed Units are placed in their owner\'s Trash (rule 524.1/525)', () => {
+  it('places a killed registered CardDefinition in its owner\'s trash', () => {
+    const attacker = makeUnit({
+      instanceId: 'attacker',
+      cardId: 'OGN-011', // Magma Wurm — a real, registered CardDefinition
+      controller: 'p1',
+      might: 10,
+      combatRole: 'attacking',
+    });
+    const defender = makeUnit({
+      instanceId: 'defender',
+      cardId: 'OGN-011',
+      controller: 'p2',
+      might: 1,
+      combatRole: 'defending',
+    });
+    const state = makeGameState([attacker, defender]);
+
+    resolveCombat(state, 'bf1');
+
+    expect(state.players.p2.trash).toEqual([CARD_DEFINITIONS['OGN-011']]);
+    expect(state.players.p1.trash).toEqual([]); // the attacker survived
+  });
+
+  it('skips the trash for an unregistered test cardId (no CardDefinition to place)', () => {
+    const attacker = makeUnit({ instanceId: 'attacker', controller: 'p1', might: 10, combatRole: 'attacking' });
+    const defender = makeUnit({ instanceId: 'defender', controller: 'p2', might: 1, combatRole: 'defending' });
+    const state = makeGameState([attacker, defender]);
+
+    resolveCombat(state, 'bf1');
+
+    expect(state.players.p2.trash).toEqual([]);
   });
 });

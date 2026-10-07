@@ -164,8 +164,8 @@ export default function BoardPage() {
   return (
     <div className={styles.board}>
       {/* Opponent — mirrored across the shared battlefields */}
-      <div className={`${styles.zone} ${styles.oppTrash}`}>
-        <span className={styles.zoneLabel}>Trash</span>
+      <div className={styles.oppTrash}>
+        <DeckCount label="Trash" count={opponent.trash.length} />
       </div>
       <div className={styles.oppDeck}>
         <DeckCount label="Deck" count={opponent.deck.length} />
@@ -249,8 +249,8 @@ export default function BoardPage() {
       <div className={styles.youDeck}>
         <DeckCount label="Deck" count={you.deck.length} />
       </div>
-      <div className={`${styles.zone} ${styles.youTrash}`}>
-        <span className={styles.zoneLabel}>Trash</span>
+      <div className={styles.youTrash}>
+        <DeckCount label="Trash" count={you.trash.length} />
       </div>
     </div>
   );

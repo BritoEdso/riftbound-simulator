@@ -10,8 +10,8 @@ function makeState(
     turnPlayer: 'p1',
     victoryScore: 8,
     players: {
-      p1: { id: 'p1', points: 0, hand: [], deck: [], runeDeck: p1RuneDeck, runesInPlay: p1RunesInPlay, energyPool: 0, powerPool: {} },
-      p2: { id: 'p2', points: 0, hand: [], deck: [], runeDeck: p2RuneDeck, runesInPlay: [], energyPool: 0, powerPool: {} },
+      p1: { id: 'p1', points: 0, hand: [], deck: [], runeDeck: p1RuneDeck, runesInPlay: p1RunesInPlay, energyPool: 0, powerPool: {}, trash: [] },
+      p2: { id: 'p2', points: 0, hand: [], deck: [], runeDeck: p2RuneDeck, runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },
     },
     battlefields: [],
     units: [],

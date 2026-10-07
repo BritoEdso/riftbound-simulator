@@ -35,8 +35,8 @@ function makeGameState(units: UnitInPlay[]): GameState {
     turnPlayer: "p1",
     victoryScore: 8,
     players: {
-      p1: { id: "p1", points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {} },
-      p2: { id: "p2", points: 7, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {} },
+      p1: { id: "p1", points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },
+      p2: { id: "p2", points: 7, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },
     },
     battlefields: [
       { id: "bf1", controller: "p2", contested: true, scoredByThisTurn: [] },
@@ -200,6 +200,42 @@ describe("Energy costs gate playing a card (rule 596.1)", () => {
     const result = canWin(state, "p1");
 
     expect(result.won).toBe(false);
+  });
+});
+
+describe("played Spells are placed in their owner's Trash, not just removed from hand (rule 559)", () => {
+  it("playDiscipline trashes Discipline after it resolves", () => {
+    const attacker = makeUnit({ instanceId: "attacker", controller: "p1", might: 1, combatRole: null });
+    const state = makeGameState([attacker]);
+    state.players.p1.hand = [CARD_DEFINITIONS["OGN-058"]];
+    state.players.p1.energyPool = 2;
+    // Discipline's own "Draw 1" needs a deck, or it'd trigger Burn Out
+    // (reshuffling the just-trashed Discipline right back out) — that's a
+    // real, separate interaction, not what this test is about.
+    state.players.p1.deck = [makeCard("draw-card")];
+
+    const next = applyAction(state, {
+      type: "playDiscipline",
+      targetInstanceId: "attacker",
+      playerId: "p1",
+    });
+
+    expect(next.players.p1.hand).toEqual([makeCard("draw-card")]); // Discipline's own "Draw 1"
+    expect(next.players.p1.trash).toEqual([CARD_DEFINITIONS["OGN-058"]]);
+  });
+
+  it("playRetreat trashes Retreat after it resolves", () => {
+    const attacker = makeUnit({ instanceId: "attacker", controller: "p1", cardId: "OGN-011", might: 1, combatRole: null });
+    const state = makeGameState([attacker]);
+    state.players.p1.hand = [CARD_DEFINITIONS["OGN-104"]];
+    state.players.p1.energyPool = 1;
+
+    const next = applyAction(state, { type: "playRetreat", targetInstanceId: "attacker" });
+
+    expect(next.players.p1.trash).toEqual([CARD_DEFINITIONS["OGN-104"]]);
+    // The returned unit's own card (Magma Wurm) goes back to hand, separate
+    // from the Retreat spell that was played to return it.
+    expect(next.players.p1.hand).toEqual([CARD_DEFINITIONS["OGN-011"]]);
   });
 });
 

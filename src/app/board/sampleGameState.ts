@@ -46,6 +46,7 @@ export const SAMPLE_GAME_STATE: GameState = {
       // The exhausted Mind rune above already paid for this Energy.
       energyPool: 1,
       powerPool: {},
+      trash: [fillerCard('you-fallen-unit')],
     },
     [OPPONENT_PLAYER_ID]: {
       id: OPPONENT_PLAYER_ID,
@@ -62,6 +63,7 @@ export const SAMPLE_GAME_STATE: GameState = {
       // The exhausted Order rune above already paid for this Energy.
       energyPool: 1,
       powerPool: {},
+      trash: [],
     },
   },
   battlefields: [

@@ -89,6 +89,10 @@ export interface PlayerState {
   // Power's Domain usually matches the Rune it came from (158) — see
   // PowerPool above.
   powerPool: PowerPool;
+  // Rule 524.1/525: Units killed in Combat (and Spells, once played) are
+  // placed in their owner's Trash. See combat.ts (kills) and deck.ts's
+  // burnOut (rule 607 — shuffled back into the deck when it's empty).
+  trash: CardDefinition[];
 }
 
 export interface GameState {

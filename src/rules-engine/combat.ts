@@ -1,3 +1,4 @@
+import { CARD_DEFINITIONS } from './cards';
 import { GameState, UnitInPlay } from './types';
 
 export interface CombatResult {
@@ -78,6 +79,18 @@ export function resolveCombat(
   );
   const killedIds = killed.map((u) => u.instanceId);
   state.units = state.units.filter((u) => !killedIds.includes(u.instanceId));
+
+  // Rule 524.1/525: killed Units are placed in their owner's Trash. Only
+  // applies when the Unit's cardId is a real, registered CardDefinition —
+  // test/sample fixtures routinely use placeholder ids ('test-card',
+  // 'sample-unit') that aren't in CARD_DEFINITIONS, same convention
+  // effects.ts's applyRetreat already follows for its hand-return.
+  for (const unit of killed) {
+    const cardDefinition = CARD_DEFINITIONS[unit.cardId];
+    if (cardDefinition) {
+      state.players[unit.controller].trash.push(cardDefinition);
+    }
+  }
 
   const survivingAttackers = state.units.filter(
     (u) => u.location === battlefieldId && u.combatRole === 'attacking'
