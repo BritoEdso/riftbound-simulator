@@ -3,7 +3,7 @@ import { resolveCombat } from "./combat";
 import { canAffordCost, payCost } from "./cost";
 import { applyDiscipline, applyRetreat } from "./effects";
 import { findUnit } from "./queries";
-import { exhaustRuneForEnergy } from "./rune";
+import { exhaustRuneForEnergy, recycleRuneForPower } from "./rune";
 import { score, ScoreMethod } from "./scoring";
 import { GameState, PlayerId, UnitInPlay } from "./types";
 
@@ -25,7 +25,19 @@ export type Action =
     }
   | { type: "playDiscipline"; targetInstanceId: string; playerId: string }
   | { type: "playRetreat"; targetInstanceId: string }
-  | { type: "exhaustRuneForEnergy"; playerId: PlayerId; runeInstanceId: string };
+  | { type: "exhaustRuneForEnergy"; playerId: PlayerId; runeInstanceId: string }
+  | { type: "recycleRuneForPower"; playerId: PlayerId; runeInstanceId: string }
+  | {
+      type: "playUnit";
+      playerId: PlayerId;
+      cardId: string;
+      // Generated when the Action is built, not when it's applied — see
+      // legalActions's playUnitActions for why that's safe here.
+      instanceId: string;
+      // Rule 719.1.d.1: a Unit can only be played to its controller's base
+      // or a battlefield they already control.
+      location: string;
+    };
 
 // All orderings of `items` — used to turn "which equal-priority target gets
 // damage first" into a set of distinct Actions for the search to try. Only
@@ -103,10 +115,8 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
     }));
 
   // Exhausting a Ready rune for Energy (rule 156.2.a's "[T]: Add [1]") is how
-  // the solver discovers it can afford Discipline/Retreat even when
-  // energyPool starts short. Recycling a rune for Power isn't offered here —
-  // no CardDefinition has a non-empty powerCost yet (see cost.ts), so it
-  // would only ever be a dead branch, bloating the search for nothing.
+  // the solver discovers it can afford a card's Energy cost even when
+  // energyPool starts short.
   const exhaustRuneActions: Action[] = state.players[playerId].runesInPlay
     .filter((r) => r.ready)
     .map((r) => ({
@@ -115,16 +125,62 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
       runeInstanceId: r.instanceId,
     }));
 
+  // Recycling a rune for Power ("Recycle this: Add [C]", rule 156.2.a) — the
+  // Power counterpart to exhausting for Energy above. Offered for every rune
+  // regardless of Ready/Exhausted (Recycle isn't an Exhaust action — rule
+  // 594). Now that Magma Wurm (OGN-011) has a real powerCost, this is no
+  // longer a dead branch the way it was before that card existed.
+  const recycleRuneActions: Action[] = state.players[playerId].runesInPlay.map((r) => ({
+    type: "recycleRuneForPower" as const,
+    playerId,
+    runeInstanceId: r.instanceId,
+  }));
+
+  // Rule 719.1.d.1: a Unit enters play at its controller's base or a
+  // battlefield they already control. One Action per (affordable Unit card
+  // in hand) x (valid location) — deduped by cardId first, since hand cards
+  // have no per-copy identity (see CLAUDE.md), so two copies of the same
+  // card would otherwise generate identical redundant branches. The
+  // generated instanceId only needs to be unique among its sibling
+  // candidates in *this* batch — only one of them is ever actually applied
+  // per search branch, so there's no cross-branch collision risk.
+  const uniqueAffordableUnitCardIds = [
+    ...new Set(
+      state.players[playerId].hand
+        .filter((c) => c.type === "Unit" && c.might !== undefined)
+        .map((c) => c.id),
+    ),
+  ].filter((cardId) => canAffordCost(state, playerId, CARD_DEFINITIONS[cardId]));
+  const playableLocations = [
+    "base",
+    ...state.battlefields.filter((bf) => bf.controller === playerId).map((bf) => bf.id),
+  ];
+  const playUnitActions: Action[] = uniqueAffordableUnitCardIds.flatMap((cardId, i) =>
+    playableLocations.map((location, j) => ({
+      type: "playUnit" as const,
+      playerId,
+      cardId,
+      instanceId: `${playerId}-unit-${state.units.length}-${i}-${j}`,
+      location,
+    })),
+  );
+
   return [
     ...combatActions,
     ...scoreActions,
     ...retreatActions,
     ...disciplineActions,
     ...exhaustRuneActions,
+    ...recycleRuneActions,
+    ...playUnitActions,
   ];
 }
 
-function applyAction(state: GameState, action: Action): GameState {
+// Exported for direct unit testing (e.g. confirming playUnit's mutations in
+// isolation, without needing a canWin scenario to drive it) — canWin/
+// SolveResult remain the intended public surface for actually driving the
+// solver.
+export function applyAction(state: GameState, action: Action): GameState {
   const next = structuredClone(state);
   switch (action.type) {
     case "resolveCombat":
@@ -150,6 +206,29 @@ function applyAction(state: GameState, action: Action): GameState {
     case "exhaustRuneForEnergy":
       exhaustRuneForEnergy(next, action.playerId, action.runeInstanceId);
       break;
+    case "recycleRuneForPower":
+      recycleRuneForPower(next, action.playerId, action.runeInstanceId);
+      break;
+    case "playUnit": {
+      const card = CARD_DEFINITIONS[action.cardId];
+      if (card.might === undefined) {
+        throw new Error(`${card.id} has no Might — not a valid Unit to play`);
+      }
+      payCost(next, action.playerId, card);
+      removeCardFromHand(next, action.playerId, action.cardId);
+      next.units.push({
+        instanceId: action.instanceId,
+        cardId: action.cardId,
+        controller: action.playerId,
+        location: action.location,
+        baseMight: card.might,
+        might: card.might,
+        damage: 0,
+        keywords: [...card.keywords],
+        combatRole: null,
+      });
+      break;
+    }
   }
   return next;
 }

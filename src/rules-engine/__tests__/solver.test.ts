@@ -1,4 +1,5 @@
-import { canWin, legalActions } from "../solver";
+import { CARD_DEFINITIONS } from "../cards";
+import { applyAction, canWin, legalActions } from "../solver";
 import { CardDefinition, GameState, UnitInPlay } from "../types";
 
 function makeCard(id: string): CardDefinition {
@@ -179,5 +180,104 @@ describe("legalActions: resolveCombat damage-order choices", () => {
       JSON.stringify([a.type === "resolveCombat" ? a.attackerDamageOrder : null, a.type === "resolveCombat" ? a.defenderDamageOrder : null]),
     );
     expect(new Set(serialized).size).toBe(4); // all 4 are actually distinct
+  });
+});
+
+describe("playUnit (rule 719.1.d.1: base or a battlefield you control)", () => {
+  function makeStateWithMagmaWurmInHand() {
+    const state = makeGameState([]);
+    state.battlefields = [
+      { id: "bf-mine", controller: "p1", contested: false, scoredByThisTurn: [] },
+      { id: "bf-theirs", controller: "p2", contested: false, scoredByThisTurn: [] },
+    ];
+    state.players.p1.hand = [CARD_DEFINITIONS["OGN-011"]]; // Magma Wurm: Energy 8, Power 1 Fury
+    return state;
+  }
+
+  it("offers one Action per valid location — base plus battlefields you control, not ones you don't", () => {
+    const state = makeStateWithMagmaWurmInHand();
+    state.players.p1.energyPool = 8;
+    state.players.p1.powerPool = { Fury: 1 };
+
+    const playUnitActions = legalActions(state, "p1").filter((a) => a.type === "playUnit");
+
+    expect(playUnitActions).toHaveLength(2);
+    const locations = playUnitActions.map((a) => (a.type === "playUnit" ? a.location : null)).sort();
+    expect(locations).toEqual(["base", "bf-mine"]);
+  });
+
+  it("offers nothing when the Energy or Power cost isn't met", () => {
+    const short = makeStateWithMagmaWurmInHand();
+    short.players.p1.energyPool = 7; // one short of Magma Wurm's 8
+    short.players.p1.powerPool = { Fury: 1 };
+    expect(legalActions(short, "p1").some((a) => a.type === "playUnit")).toBe(false);
+
+    const noPower = makeStateWithMagmaWurmInHand();
+    noPower.players.p1.energyPool = 8;
+    noPower.players.p1.powerPool = {};
+    expect(legalActions(noPower, "p1").some((a) => a.type === "playUnit")).toBe(false);
+  });
+
+  it("creates the UnitInPlay, pays both cost halves, and removes the card from hand", () => {
+    const state = makeStateWithMagmaWurmInHand();
+    state.players.p1.energyPool = 8;
+    state.players.p1.powerPool = { Fury: 1 };
+
+    const next = applyAction(state, {
+      type: "playUnit",
+      playerId: "p1",
+      cardId: "OGN-011",
+      instanceId: "p1-unit-0",
+      location: "base",
+    });
+
+    expect(next.units).toEqual([
+      {
+        instanceId: "p1-unit-0",
+        cardId: "OGN-011",
+        controller: "p1",
+        location: "base",
+        baseMight: 8,
+        might: 8,
+        damage: 0,
+        keywords: [],
+        combatRole: null,
+      },
+    ]);
+    expect(next.players.p1.hand).toEqual([]);
+    expect(next.players.p1.energyPool).toBe(0);
+    expect(next.players.p1.powerPool).toEqual({ Fury: 0 });
+  });
+
+  it("end to end: recycling/exhausting Runes, then playing the Unit, via chained Actions", () => {
+    const state = makeStateWithMagmaWurmInHand();
+    state.players.p1.runesInPlay = [
+      ...Array.from({ length: 8 }, (_, i) => ({ instanceId: `e${i}`, domain: "Calm" as const, ready: true })),
+      { instanceId: "p", domain: "Fury" as const, ready: true },
+    ];
+
+    let working = state;
+    for (let i = 0; i < 8; i++) {
+      working = applyAction(working, { type: "exhaustRuneForEnergy", playerId: "p1", runeInstanceId: `e${i}` });
+    }
+    working = applyAction(working, { type: "recycleRuneForPower", playerId: "p1", runeInstanceId: "p" });
+
+    expect(legalActions(working, "p1").some((a) => a.type === "playUnit")).toBe(true);
+
+    const final = applyAction(working, {
+      type: "playUnit",
+      playerId: "p1",
+      cardId: "OGN-011",
+      instanceId: "p1-unit-0",
+      location: "base",
+    });
+
+    expect(final.units.map((u) => u.cardId)).toEqual(["OGN-011"]);
+    // Exhausting doesn't remove a rune from play, just flips it — the 8
+    // Energy runes are still there, Exhausted. Only Recycling removes one.
+    expect(final.players.p1.runesInPlay).toEqual(
+      Array.from({ length: 8 }, (_, i) => ({ instanceId: `e${i}`, domain: "Calm", ready: false })),
+    );
+    expect(final.players.p1.runeDeck).toEqual(["Fury"]); // the Recycled one, back at the bottom
   });
 });
