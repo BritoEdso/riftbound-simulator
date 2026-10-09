@@ -1,0 +1,645 @@
+/* Trials list + trial player. Colors come from globals.css's --rift-* tokens
+   (which already switch for dark mode); the few local ones are defined here
+   for both schemes. */
+
+.listPage,
+.trialPage {
+  --good: #2f7d4f;
+  --good-soft: #e3f3e9;
+  --bad: #a8433b;
+  --bad-soft: #f8e6e4;
+  --you: #34479e;
+  --them: #a8433b;
+
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .listPage,
+  .trialPage {
+    --good: #6fd197;
+    --good-soft: #1b3326;
+    --bad: #f08a80;
+    --bad-soft: #3a1f1d;
+    --you: #8ca0ff;
+    --them: #f08a80;
+  }
+}
+
+.muted {
+  color: var(--rift-muted);
+  font-size: 13px;
+}
+
+/* ---------- trials list ---------- */
+
+.listHeader h1 {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.listHeader p {
+  max-width: 640px;
+  color: var(--rift-muted);
+  line-height: 1.5;
+}
+
+.tier {
+  margin-top: 32px;
+}
+
+.tierTitle {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rift-muted);
+  border-bottom: 1px solid var(--rift-rule);
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+}
+
+.empty {
+  color: var(--rift-muted);
+  font-size: 14px;
+}
+
+.trialGrid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.trialCard {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--rift-rule);
+  background: var(--rift-panel);
+  border-radius: 8px;
+  transition: border-color 0.15s;
+}
+
+.trialCard:hover,
+.trialCard:focus-visible {
+  border-color: var(--rift-accent);
+}
+
+.trialLegendArt {
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.trialCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trialLegend {
+  font-size: 12px;
+  color: var(--rift-muted);
+}
+
+.trialTitle {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.trialObjectives {
+  font-size: 13px;
+  color: var(--rift-muted);
+}
+
+/* ---------- trial page ---------- */
+
+.backLink {
+  font-size: 14px;
+  color: var(--rift-accent);
+}
+
+.trialHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.trialHeading h1 {
+  font-size: 28px;
+}
+
+.badge {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--rift-accent-soft);
+  color: var(--rift-accent);
+}
+
+.legendTag {
+  color: var(--rift-muted);
+  font-size: 14px;
+}
+
+.briefing {
+  max-width: 820px;
+  line-height: 1.5;
+}
+
+.victory,
+.deadEnd {
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid;
+}
+
+.victory {
+  border-color: var(--good);
+  background: var(--good-soft);
+  animation: pop 0.4s ease-out;
+}
+
+.deadEnd {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.victory h2 {
+  color: var(--good);
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.deadEnd h2 {
+  color: var(--bad);
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .victory {
+    animation: none;
+  }
+}
+
+.trialLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .trialLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.playerStrip {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 110px;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--rift-rule);
+  background: var(--rift-panel);
+  border-radius: 8px;
+}
+
+.playerStrip[data-side="you"] {
+  border-left: 4px solid var(--you);
+}
+
+.playerStrip[data-side="opponent"] {
+  border-left: 4px solid var(--them);
+}
+
+@media (max-width: 600px) {
+  .playerStrip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.playerSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.playerName {
+  font-weight: 600;
+}
+
+.points {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.points small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--rift-muted);
+}
+
+.zone,
+.legendZone,
+.hand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.zoneLabel {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rift-muted);
+}
+
+.legendArt {
+  width: 90px;
+}
+
+.runes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.rune {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+.rune[data-ready="false"] {
+  opacity: 0.3;
+}
+
+.pool {
+  font-size: 12px;
+  color: var(--rift-muted);
+  margin-left: 4px;
+}
+
+.battlefields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.battlefield {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 170px;
+  padding: 12px;
+  border: 1px solid var(--rift-rule);
+  border-radius: 8px;
+  background: var(--rift-panel-code);
+}
+
+.battlefield[data-controller="you"] {
+  border-top: 4px solid var(--you);
+}
+
+.battlefield[data-controller="opponent"] {
+  border-top: 4px solid var(--them);
+}
+
+.battlefield[data-active="true"] {
+  box-shadow: 0 0 0 2px var(--rift-accent);
+}
+
+.battlefieldHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.battlefieldName {
+  font-weight: 600;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag,
+.tagGood {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--rift-accent-soft);
+  color: var(--rift-accent);
+}
+
+.tagGood {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.unit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  min-width: 130px;
+  border: 1px solid var(--rift-rule);
+  border-radius: 6px;
+  background: var(--background);
+}
+
+.unit[data-ready="false"] {
+  opacity: 0.7;
+}
+
+.unit[data-role="attacking"] {
+  border-color: var(--you);
+}
+
+.unit[data-role="defending"] {
+  border-color: var(--them);
+}
+
+.unitName {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.might {
+  font-size: 13px;
+}
+
+.might s {
+  margin: 0 4px;
+  color: var(--rift-muted);
+}
+
+.might[data-changed="up"] {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.might[data-changed="down"] {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.unitMeta {
+  font-size: 11px;
+  color: var(--rift-muted);
+}
+
+.hand {
+  padding: 10px;
+  border: 1px solid var(--rift-rule);
+  border-radius: 8px;
+  background: var(--rift-panel);
+}
+
+.handCards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.handArt {
+  width: 120px;
+}
+
+.textCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 160px;
+  padding: 8px;
+  font-size: 13px;
+  border: 1px solid var(--rift-rule);
+  border-radius: 6px;
+  background: var(--background);
+}
+
+/* ---------- sidebar ---------- */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.panel {
+  padding: 12px;
+  border: 1px solid var(--rift-rule);
+  border-radius: 8px;
+  background: var(--rift-panel);
+}
+
+.panelTitle {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rift-muted);
+  margin-bottom: 8px;
+}
+
+.objectives {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.objectives li[data-done="true"] {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.phase {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.phase h3 {
+  font-size: 12px;
+  color: var(--rift-muted);
+  margin-top: 4px;
+}
+
+.chain {
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+.actionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.actionGroup h3 {
+  font-size: 12px;
+  color: var(--rift-muted);
+  font-weight: 600;
+}
+
+.actionButton,
+.primaryButton,
+.secondaryButton {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.actionButton {
+  border: 1px solid var(--rift-rule);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.actionButton:hover,
+.actionButton:focus-visible {
+  border-color: var(--rift-accent);
+  background: var(--rift-accent-soft);
+}
+
+.primaryButton {
+  border: 1px solid var(--rift-accent);
+  background: var(--rift-accent);
+  color: var(--background);
+}
+
+.secondaryButton {
+  border: 1px solid var(--rift-rule);
+  background: var(--background);
+  color: var(--foreground);
+  display: inline-block;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hint {
+  margin-top: 10px;
+  font-size: 14px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--rift-accent-soft);
+}
+
+.linkButton {
+  font: inherit;
+  font-size: 13px;
+  margin-top: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--rift-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.explanation {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.explanation ol,
+.explanation ul {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.explanation h3 {
+  font-size: 14px;
+  margin: 12px 0 6px;
+}
+
+.rules {
+  display: block;
+  font-size: 12px;
+  color: var(--rift-muted);
+  margin-top: 2px;
+}
+
+.log {
+  padding-left: 20px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.logWho {
+  font-weight: 600;
+}
+
+.log li[data-by="you"] .logWho {
+  color: var(--you);
+}
+
+.log li[data-by="opponent"] .logWho {
+  color: var(--them);
+}
