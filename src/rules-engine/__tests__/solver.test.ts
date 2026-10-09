@@ -1,5 +1,6 @@
 import { CARD_DEFINITIONS } from "../cards";
-import { applyAction, canWin, legalActions } from "../solver";
+import { priorityHolder } from "../chain";
+import { Action, applyAction, canWin, legalActions } from "../solver";
 import { CardDefinition, GameState, UnitInPlay } from "../types";
 
 function makeCard(id: string): CardDefinition {
@@ -30,10 +31,25 @@ function makeUnit(overrides: Partial<UnitInPlay>): UnitInPlay {
   };
 }
 
+// Plays a Spell, then has whoever holds Priority pass until the Chain is
+// empty — i.e. nobody responds and it resolves.
+function playAndResolve(state: GameState, playerId: string, cardId: string, targetInstanceId: string): GameState {
+  let next = applyAction(state, { type: "playSpell", playerId, cardId, targetInstanceId });
+  while (next.chain !== null) {
+    next = applyAction(next, { type: "pass", playerId: priorityHolder(next) });
+  }
+  return next;
+}
+
+function isSpell(action: Action, cardId: string): boolean {
+  return action.type === "playSpell" && action.cardId === cardId;
+}
+
 function makeGameState(units: UnitInPlay[]): GameState {
   return {
     turnPlayer: "p1",
     turnNumber: 1,
+    chain: null,
     victoryScore: 8,
     players: {
       p1: { id: "p1", points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },
@@ -136,7 +152,7 @@ describe("moveUnit is what gets a Unit into combat at all (rule 140-141)", () =>
 
     expect(result.won).toBe(true);
     // DFS tries actions in legalActions' order, so the winning line it finds
-    // first isn't necessarily "move, then everything else" — playDiscipline
+    // first isn't necessarily "move, then everything else" — Discipline
     // is offered before moveUnit and buffing the attacker before it moves
     // also leads to a win. What's actually being proven here is that *some*
     // moveUnit is required at all: without one, no unit's combatRole is
@@ -190,7 +206,7 @@ describe("Energy costs gate playing a card (rule 596.1)", () => {
     expect(result.won).toBe(true);
     const exhaustCount = result.line.filter((a) => a.type === "exhaustRuneForEnergy").length;
     expect(exhaustCount).toBe(2); // Discipline costs 2 Energy, each rune gives 1
-    expect(result.line.some((a) => a.type === "playDiscipline")).toBe(true);
+    expect(result.line.some((a) => isSpell(a, "OGN-058"))).toBe(true);
   });
 
   it("reports no win when Discipline is in hand but there isn't enough Energy available", () => {
@@ -243,7 +259,7 @@ describe("Power costs gate playing a card too, and can be the deciding resource 
     expect(result.won).toBe(true);
     expect(result.line.some((a) => a.type === "exhaustRuneForEnergy")).toBe(true);
     expect(result.line.some((a) => a.type === "recycleRuneForPower")).toBe(true);
-    expect(result.line.some((a) => a.type === "playHextechRay" && a.targetInstanceId === "defender")).toBe(true);
+    expect(result.line.some((a) => isSpell(a, "OGN-009") && a.type === "playSpell" && a.targetInstanceId === "defender")).toBe(true);
   });
 
   it("a single Rune is actually enough — Exhaust it for Energy, then Recycle the now-Exhausted Rune for Power (Recycle doesn't require Ready)", () => {
@@ -281,7 +297,7 @@ describe("Power costs gate playing a card too, and can be the deciding resource 
 });
 
 describe("played Spells are placed in their owner's Trash, not just removed from hand (rule 559)", () => {
-  it("playDiscipline trashes Discipline after it resolves", () => {
+  it("Discipline is trashed after it resolves", () => {
     const attacker = makeUnit({ instanceId: "attacker", controller: "p1", might: 1, combatRole: null });
     const state = makeGameState([attacker]);
     state.players.p1.hand = [CARD_DEFINITIONS["OGN-058"]];
@@ -291,23 +307,19 @@ describe("played Spells are placed in their owner's Trash, not just removed from
     // real, separate interaction, not what this test is about.
     state.players.p1.deck = [makeCard("draw-card")];
 
-    const next = applyAction(state, {
-      type: "playDiscipline",
-      targetInstanceId: "attacker",
-      playerId: "p1",
-    });
+    const next = playAndResolve(state, "p1", "OGN-058", "attacker");
 
     expect(next.players.p1.hand).toEqual([makeCard("draw-card")]); // Discipline's own "Draw 1"
     expect(next.players.p1.trash).toEqual([CARD_DEFINITIONS["OGN-058"]]);
   });
 
-  it("playRetreat trashes Retreat after it resolves", () => {
+  it("Retreat is trashed after it resolves", () => {
     const attacker = makeUnit({ instanceId: "attacker", controller: "p1", cardId: "OGN-011", might: 1, combatRole: null });
     const state = makeGameState([attacker]);
     state.players.p1.hand = [CARD_DEFINITIONS["OGN-104"]];
     state.players.p1.energyPool = 1;
 
-    const next = applyAction(state, { type: "playRetreat", targetInstanceId: "attacker" });
+    const next = playAndResolve(state, "p1", "OGN-104", "attacker");
 
     expect(next.players.p1.trash).toEqual([CARD_DEFINITIONS["OGN-104"]]);
     // The returned unit's own card (Magma Wurm) goes back to hand, separate
@@ -513,7 +525,7 @@ describe("Control loss and immediate wins inside the search", () => {
     state.players.p1.energyPool = 1;
     state.players.p1.powerPool = { Fury: 1 };
 
-    const rayed = applyAction(state, { type: "playHextechRay", targetInstanceId: "defender", playerId: "p1" });
+    const rayed = playAndResolve(state, "p1", "OGN-009", "defender");
     expect(rayed.battlefields[0].controller).toBeNull();
 
     const fought = applyAction(rayed, { type: "resolveCombat", battlefieldId: "bf1" });
@@ -528,7 +540,7 @@ describe("Control loss and immediate wins inside the search", () => {
     state.players.p1.energyPool = 10;
     state.players.p1.powerPool = { Universal: 10 };
 
-    const next = applyAction(state, { type: "playRetreat", targetInstanceId: "lone" });
+    const next = playAndResolve(state, "p1", "OGN-104", "lone");
 
     expect(next.battlefields[0].controller).toBeNull();
   });

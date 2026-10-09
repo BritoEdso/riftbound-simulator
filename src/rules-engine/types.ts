@@ -104,4 +104,30 @@ export interface GameState {
   players: Record<PlayerId, PlayerState>;
   battlefields: Battlefield[];
   units: UnitInPlay[];
+  // The Chain (rules 532-544) — see chain.ts. null when no Chain exists,
+  // i.e. the turn is in an Open State (rule 510) and Priority sits with the
+  // Turn Player.
+  chain: Chain | null;
+}
+
+// A played Spell waiting on the Chain to resolve. Its cost is already paid
+// and it has already left its controller's hand; it reaches the Trash only
+// once it resolves (rule 543). Targets are chosen on play (rule ~557) and
+// re-checked for legality on resolution (rule 563.2.c).
+export interface ChainItem {
+  cardId: string;
+  controller: PlayerId;
+  targetInstanceId: string;
+}
+
+export interface Chain {
+  // Ordered oldest first; the last item is the next to resolve (LIFO).
+  items: ChainItem[];
+  // The player with Priority (rule 512.2.c-d) — who may add a Reaction or
+  // pass. Called the Active Player on the Chain (rule 537.2).
+  priority: PlayerId;
+  // How many Relevant Players have passed in a row since the last item was
+  // added or resolved. Once everyone has (2, in 1v1), the newest item
+  // resolves (rule 540.4.b).
+  consecutivePasses: number;
 }

@@ -1,8 +1,9 @@
 import { CARD_DEFINITIONS } from "./cards";
+import { isPlayableNow, passPriority, playSpell, priorityHolder } from "./chain";
 import { resolveCombat } from "./combat";
 import { canAffordCost, payCost } from "./cost";
-import { applyDiscipline, applyHextechRay, applyRetreat } from "./effects";
-import { findUnit, winner } from "./queries";
+import { SPELLS } from "./effects";
+import { winner } from "./queries";
 import { moveUnit } from "./movement";
 import { exhaustRuneForEnergy, recycleRuneForPower } from "./rune";
 import { GameState, PlayerId, UnitInPlay } from "./types";
@@ -17,9 +18,10 @@ export type Action =
       attackerDamageOrder?: string[];
       defenderDamageOrder?: string[];
     }
-  | { type: "playDiscipline"; targetInstanceId: string; playerId: string }
-  | { type: "playRetreat"; targetInstanceId: string }
-  | { type: "playHextechRay"; targetInstanceId: string; playerId: string }
+  // Puts the Spell on the Chain (chain.ts) — it only takes effect once
+  // both players pass in a row.
+  | { type: "playSpell"; playerId: PlayerId; cardId: string; targetInstanceId: string }
+  | { type: "pass"; playerId: PlayerId }
   | { type: "exhaustRuneForEnergy"; playerId: PlayerId; runeInstanceId: string }
   | { type: "recycleRuneForPower"; playerId: PlayerId; runeInstanceId: string }
   | {
@@ -62,7 +64,16 @@ function damageOrderOptions(units: UnitInPlay[]): (string[] | undefined)[] {
 // damage-order permutation count) — canWin/SolveResult remain the intended
 // public surface for actually driving the solver.
 export function legalActions(state: GameState, playerId: PlayerId): Action[] {
-  const combatActions: Action[] = state.battlefields
+  // Rule 512: only the player with Priority can act. While a Chain exists
+  // (Closed State) that's whoever the Chain says, and they're limited to
+  // Reactions, Rune taps, and passing; in the Open State it's the Turn
+  // Player, who can do anything except pass (there's nothing to pass on).
+  if (playerId !== priorityHolder(state)) return [];
+  const open = state.chain === null;
+
+  const passActions: Action[] = open ? [] : [{ type: "pass", playerId }];
+
+  const combatActions: Action[] = !open ? [] : state.battlefields
     .filter((bf) =>
       state.units.some((u) => u.location === bf.id && u.combatRole !== null),
     )
@@ -86,41 +97,26 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
   // No "score" Action: Scoring isn't something a player chooses to do
   // (rule 630). Conquer happens automatically when Control is gained —
   // inside combat.ts's resolveCombat and movement.ts's moveUnit — and Hold
-  // only happens in
-  // the Beginning Phase, which is already over by the time the solver's
-  // single Action Phase search starts.
+  // only happens in the Beginning Phase, which is already over by the time
+  // the solver's single Action Phase search starts.
 
-  const canAffordRetreat =
-    state.players[playerId].hand.some((c) => c.id === "OGN-104") &&
-    canAffordCost(state, playerId, CARD_DEFINITIONS["OGN-104"]);
-  const retreatActions: Action[] = state.units
-    .filter((u) => u.controller === playerId && canAffordRetreat)
-    .map((u) => ({ type: "playRetreat", targetInstanceId: u.instanceId }));
-
-  const canAffordDiscipline =
-    state.players[playerId].hand.some((c) => c.id === "OGN-058") &&
-    canAffordCost(state, playerId, CARD_DEFINITIONS["OGN-058"]);
-  const disciplineActions: Action[] = state.units
-    .filter(() => canAffordDiscipline)
-    .map((u) => ({
-      type: "playDiscipline",
-      targetInstanceId: u.instanceId,
-      playerId,
-    }));
-
-  // "Deal 3 to a unit at a battlefield" — restricted to units whose
-  // location is a battlefield, not 'base'. Unrestricted by controller, same
-  // permissiveness as Discipline's targeting.
-  const canAffordHextechRay =
-    state.players[playerId].hand.some((c) => c.id === "OGN-009") &&
-    canAffordCost(state, playerId, CARD_DEFINITIONS["OGN-009"]);
-  const hextechRayActions: Action[] = state.units
-    .filter((u) => canAffordHextechRay && u.location !== "base")
-    .map((u) => ({
-      type: "playHextechRay",
-      targetInstanceId: u.instanceId,
-      playerId,
-    }));
+  // One Action per (Spell in hand, deduped by id) x (legal target), when
+  // it's affordable and its timing allows it right now (chain.ts's
+  // isPlayableNow — only Reactions once a Chain exists). Targeting rules
+  // live with each card in effects.ts's SPELLS.
+  const spellActions: Action[] = [
+    ...new Set(state.players[playerId].hand.filter((c) => c.id in SPELLS).map((c) => c.id)),
+  ]
+    .filter((cardId) => isPlayableNow(state, cardId))
+    .filter((cardId) => canAffordCost(state, playerId, CARD_DEFINITIONS[cardId]))
+    .flatMap((cardId) =>
+      SPELLS[cardId].legalTargets(state, playerId).map((u) => ({
+        type: "playSpell" as const,
+        playerId,
+        cardId,
+        targetInstanceId: u.instanceId,
+      })),
+    );
 
   // Exhausting a Ready rune for Energy (rule 156.2.a's "[T]: Add [1]") is how
   // the solver discovers it can afford a card's Energy cost even when
@@ -151,8 +147,10 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
   // card would otherwise generate identical redundant branches. The
   // generated instanceId only needs to be unique among its sibling
   // candidates in *this* batch — only one of them is ever actually applied
-  // per search branch, so there's no cross-branch collision risk.
-  const uniqueAffordableUnitCardIds = [
+  // per search branch, so there's no cross-branch collision risk. Open
+  // State only — Magma Wurm has no Reaction keyword, and a Unit never uses
+  // the Chain's response window anyway (rule 538).
+  const uniqueAffordableUnitCardIds = !open ? [] : [
     ...new Set(
       state.players[playerId].hand
         .filter((c) => c.type === "Unit" && c.might !== undefined)
@@ -177,8 +175,9 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
   // from its current location to any other base/battlefield. This is what
   // lets the solver actually get a Unit into combat — see movement.ts for
   // what happens to combatRole/Contested status when it arrives.
+  // Not in a Closed State (rule ~596).
   const moveUnitActions: Action[] = state.units
-    .filter((u) => u.controller === playerId && u.ready)
+    .filter((u) => open && u.controller === playerId && u.ready)
     .flatMap((u) =>
       ["base", ...state.battlefields.map((bf) => bf.id)]
         .filter((destination) => destination !== u.location)
@@ -189,11 +188,13 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
         })),
     );
 
+  // Pass first: in canWin's opponent turns, the first reply tried is the
+  // one whose line gets reported, and "they let it resolve" is the most
+  // readable main line.
   return [
+    ...passActions,
     ...combatActions,
-    ...retreatActions,
-    ...disciplineActions,
-    ...hextechRayActions,
+    ...spellActions,
     ...exhaustRuneActions,
     ...recycleRuneActions,
     ...playUnitActions,
@@ -214,21 +215,11 @@ export function applyAction(state: GameState, action: Action): GameState {
         defenderDamageOrder: action.defenderDamageOrder,
       });
       break;
-    case "playDiscipline":
-      payCost(next, action.playerId, CARD_DEFINITIONS["OGN-058"]);
-      moveCardFromHandToTrash(next, action.playerId, "OGN-058");
-      applyDiscipline(next, action.targetInstanceId, action.playerId);
+    case "playSpell":
+      playSpell(next, action.playerId, action.cardId, action.targetInstanceId);
       break;
-    case "playRetreat":
-      const targetUnit = findUnit(next, action.targetInstanceId);
-      payCost(next, targetUnit.controller, CARD_DEFINITIONS["OGN-104"]);
-      moveCardFromHandToTrash(next, targetUnit.controller, "OGN-104");
-      applyRetreat(next, action.targetInstanceId);
-      break;
-    case "playHextechRay":
-      payCost(next, action.playerId, CARD_DEFINITIONS["OGN-009"]);
-      moveCardFromHandToTrash(next, action.playerId, "OGN-009");
-      applyHextechRay(next, action.targetInstanceId);
+    case "pass":
+      passPriority(next, action.playerId);
       break;
     case "exhaustRuneForEnergy":
       exhaustRuneForEnergy(next, action.playerId, action.runeInstanceId);
@@ -266,6 +257,9 @@ export function applyAction(state: GameState, action: Action): GameState {
 
 export interface SolveResult {
   won: boolean;
+  // The winning line assuming the opponent always makes their first legal
+  // reply (passing, when they can) — a forced win holds against every
+  // reply, but only this one branch is reported.
   line: Action[];
 }
 
@@ -282,13 +276,30 @@ export function canWin(
     return gameWinner === playerId ? { won: true, line } : { won: false, line: [] };
   }
 
-  for (const action of legalActions(state, playerId)) {
-    const next = applyAction(state, action);
-    const result = canWin(next, playerId, [...line, action]);
-    if (result.won) return result;
+  const actor = priorityHolder(state);
+  const actions = legalActions(state, actor);
+
+  if (actor === playerId) {
+    // Our choice: one winning Action is enough.
+    for (const action of actions) {
+      const next = applyAction(state, action);
+      const result = canWin(next, playerId, [...line, action]);
+      if (result.won) return result;
+    }
+    return { won: false, line: [] };
   }
 
-  return { won: false, line: [] };
+  // The opponent's choice: a forced win has to survive every reply. With no
+  // Chain, the opponent holding Priority means it's their Open State — they
+  // can simply end their turn, and this search doesn't cross turns.
+  if (state.chain === null) return { won: false, line: [] };
+  let mainLine: SolveResult | null = null;
+  for (const action of actions) {
+    const result = canWin(applyAction(state, action), playerId, [...line, action]);
+    if (!result.won) return { won: false, line: [] };
+    mainLine ??= result;
+  }
+  return mainLine ?? { won: false, line: [] };
 }
 
 // Used by playUnit: the card leaves hand to become a UnitInPlay, not Trash.
@@ -300,19 +311,4 @@ function removeCardFromHand(
   const hand = state.players[playerId].hand;
   const cardIndex = hand.findIndex((c) => c.id === cardId);
   hand.splice(cardIndex, 1);
-}
-
-// Used by playDiscipline/playRetreat: Spells are placed in their owner's
-// Trash once played (rule 559), unlike a played Unit.
-function moveCardFromHandToTrash(
-  state: GameState,
-  playerId: PlayerId,
-  cardId: string,
-): void {
-  const hand = state.players[playerId].hand;
-  const cardIndex = hand.findIndex((c) => c.id === cardId);
-  const [card] = hand.splice(cardIndex, 1);
-  if (card) {
-    state.players[playerId].trash.push(card);
-  }
 }

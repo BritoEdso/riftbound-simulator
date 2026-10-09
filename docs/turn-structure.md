@@ -67,6 +67,10 @@ turn. No runes start on the board. Duel: Victory Score 8, 2 battlefields
 
 ## The Chain (532-544)
 
+*Modeled in `chain.ts` (spells, Priority, passing, LIFO resolution,
+Cleanup after each item, illegal-target handling). Not modeled: triggered
+abilities joining the Chain, Showdowns/Focus.*
+
 Playing a card/ability creates the Chain (one at a time). **A permanent
 (Unit/Gear) that starts a Chain resolves immediately — no response window**
 (538). Otherwise Relevant Players alternate adding Reactions or passing;

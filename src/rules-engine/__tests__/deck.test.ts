@@ -22,6 +22,7 @@ function makeState(
   return {
     turnPlayer: 'p1',
     turnNumber: 1,
+    chain: null,
     victoryScore: 8,
     players: {
       p1: { id: 'p1', points: 0, hand: [], deck: p1Deck, runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: p1Trash },

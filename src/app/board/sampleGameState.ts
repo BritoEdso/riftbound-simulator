@@ -29,6 +29,7 @@ export const OPPONENT_PLAYER_ID = 'p2';
 export const SAMPLE_GAME_STATE: GameState = {
   turnPlayer: YOU_PLAYER_ID,
   turnNumber: 1,
+  chain: null,
   victoryScore: 8,
   players: {
     [YOU_PLAYER_ID]: {

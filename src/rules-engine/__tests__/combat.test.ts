@@ -1,4 +1,5 @@
 import { CARD_DEFINITIONS } from '../cards';
+import { performCleanup } from '../cleanup';
 import { resolveCombat } from '../combat';
 import { applyDiscipline, applyHextechRay } from '../effects';
 import { score } from '../scoring';
@@ -36,6 +37,7 @@ function makeGameState(units: UnitInPlay[]): GameState {
   return {
     turnPlayer: 'p1',
     turnNumber: 1,
+    chain: null,
     victoryScore: 8,
     players: {
       p1: { id: 'p1', points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },
@@ -242,11 +244,13 @@ describe('applyHextechRay (OGN-009): "Deal 3 to a unit at a battlefield."', () =
     expect(unit.damage).toBe(3);
   });
 
-  it('kills the target outright (via Cleanup, rule 522) when 3 damage is lethal', () => {
+  it('kills the target at the Cleanup after it resolves (rule 518) when 3 damage is lethal', () => {
     const unit = makeUnit({ instanceId: 'u1', cardId: 'OGN-011', controller: 'p2', might: 3 });
     const state = makeGameState([unit]);
 
     applyHextechRay(state, 'u1');
+    expect(state.units[0].damage).toBe(3); // the effect itself only deals damage
+    performCleanup(state); // chain.ts runs this once the Chain item resolves
 
     expect(state.units).toEqual([]);
     expect(state.players.p2.trash).toEqual([CARD_DEFINITIONS['OGN-011']]);

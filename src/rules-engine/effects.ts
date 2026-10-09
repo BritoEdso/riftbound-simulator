@@ -1,13 +1,13 @@
 import { CARD_DEFINITIONS } from './cards';
-import { performCleanup } from './cleanup';
 import { draw } from './deck';
 import { findUnit } from './queries';
 import { channel } from './rune';
-import { GameState } from './types';
+import { ChainItem, GameState, PlayerId, UnitInPlay } from './types';
 
 // Card effects are implemented as functions that mutate a GameState. Effects
 // that require systems we haven't modeled yet (rune pools) are called out in
-// comments rather than silently doing nothing.
+// comments rather than silently doing nothing. None of them run a Cleanup
+// themselves — chain.ts does that once each Chain item resolves (rule 518).
 
 // Discipline (OGN-058): "Give a unit +2 Might this turn. Draw 1."
 export function applyDiscipline(state: GameState, targetInstanceId: string, casterId: string): void {
@@ -30,17 +30,52 @@ export function applyRetreat(state: GameState, targetInstanceId: string): void {
   }
   // "Its owner channels 1 rune exhausted" (rule 606).
   channel(state, unit.controller, 1, false);
-  // Rule 518: Cleanup after the Chain item resolves — Retreating the last
-  // friendly Unit off a Battlefield gives up Control of it.
-  performCleanup(state);
 }
 
-// Hextech Ray (OGN-009): "Deal 3 to a unit at a battlefield."
+// Hextech Ray (OGN-009): "Deal 3 to a unit at a battlefield." The lethal
+// check happens in the Cleanup that follows resolution (chain.ts).
 export function applyHextechRay(state: GameState, targetInstanceId: string): void {
   const unit = findUnit(state, targetInstanceId);
   unit.damage += 3;
-  // Rule 522: a Cleanup occurs after an item on the Chain resolves — this
-  // project doesn't model the Chain, so trigger it directly here rather
-  // than waiting for the next Combat to happen to notice the lethal damage.
-  performCleanup(state);
 }
+
+// Every Spell the engine can play, keyed by card id. `legalTargets` is used
+// twice: by solver.ts to offer the spell, and by chain.ts as the spell
+// resolves — rule 563.2.c: "The spell resolves even if some or all of its
+// targets are illegal"; an illegal target is just unaffected, and the rest
+// of the text still happens ("Instructions that can't be followed... are
+// ignored"). So `resolve` is always called, told whether its target is
+// still legal.
+export interface SpellDefinition {
+  legalTargets(state: GameState, casterId: PlayerId): UnitInPlay[];
+  resolve(state: GameState, item: ChainItem, targetIsLegal: boolean): void;
+}
+
+export const SPELLS: Record<string, SpellDefinition> = {
+  // "a unit" — any unit on the board, either side.
+  'OGN-058': {
+    legalTargets: (state) => state.units,
+    resolve: (state, item, targetIsLegal) => {
+      if (targetIsLegal) {
+        applyDiscipline(state, item.targetInstanceId, item.controller);
+      } else {
+        draw(state, item.controller, 1); // the "Draw 1" still happens
+      }
+    },
+  },
+  // "a friendly unit" — controlled by the caster. "Its owner channels"
+  // refers to the target, so an illegal target skips the channel too.
+  'OGN-104': {
+    legalTargets: (state, casterId) => state.units.filter((u) => u.controller === casterId),
+    resolve: (state, item, targetIsLegal) => {
+      if (targetIsLegal) applyRetreat(state, item.targetInstanceId);
+    },
+  },
+  // "a unit at a battlefield" — not at a base.
+  'OGN-009': {
+    legalTargets: (state) => state.units.filter((u) => u.location !== 'base'),
+    resolve: (state, item, targetIsLegal) => {
+      if (targetIsLegal) applyHextechRay(state, item.targetInstanceId);
+    },
+  },
+};
