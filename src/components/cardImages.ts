@@ -19,4 +19,12 @@ export const CARD_IMAGES: Record<string, CardImageEntry> = {
   'OGN-298': { src: '/cards/ogn-298-zaun-warrens.png', width: 1038, height: 744, alt: 'Zaun Warrens', type: 'Battlefield' },
   'OGN-293': { src: '/cards/ogn-293-the-grand-plaza.png', width: 1038, height: 744, alt: 'The Grand Plaza', type: 'Battlefield' },
   'OGN-303': { src: '/cards/ogn-303-nine-tailed-fox-legend.png', width: 1488, height: 2078, alt: 'Nine-Tailed Fox (Legend)', type: 'Legend' },
+  // Ahri cards — base printings, from the official card gallery's image CDN
+  // (see docs/cards/ahri.md). OGN-255 is the base Nine-Tailed Fox; OGN-303
+  // above is its Showcase alt-art, which the Legend pages use.
+  'OGN-255': { src: '/cards/ogn-255-nine-tailed-fox-legend.png', width: 744, height: 1039, alt: 'Nine-Tailed Fox (Legend)', type: 'Legend' },
+  'OGN-066': { src: '/cards/ogn-066-ahri-alluring.png', width: 744, height: 1039, alt: 'Ahri, Alluring', type: 'Unit' },
+  'OGN-119': { src: '/cards/ogn-119-ahri-inquisitive.png', width: 744, height: 1039, alt: 'Ahri, Inquisitive', type: 'Unit' },
+  'RAD-038': { src: '/cards/rad-038-ahri-confident.png', width: 744, height: 1039, alt: 'Ahri, Confident', type: 'Unit' },
+  'OGN-256': { src: '/cards/ogn-256-fox-fire.png', width: 744, height: 1039, alt: 'Fox-Fire', type: 'Spell' },
 };
