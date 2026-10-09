@@ -1,4 +1,4 @@
-import { moveUnit } from '../movement';
+import { moveUnit, moveUnits } from '../movement';
 import { Battlefield, GameState, UnitInPlay } from '../types';
 
 function makeUnit(overrides: Partial<UnitInPlay>): UnitInPlay {
@@ -159,5 +159,41 @@ describe('moveUnit: Control and Conquer scoring', () => {
     moveUnit(state, 'leaving', 'base');
 
     expect(state.battlefields[0].controller).toBe('p1');
+  });
+});
+
+describe('moveUnits: several Units in one Standard Move (rule ~596)', () => {
+  it('moves the whole group, from different origins, and makes all of them Attackers', () => {
+    const a1 = makeUnit({ instanceId: 'a1', controller: 'p1', location: 'base' });
+    const a2 = makeUnit({ instanceId: 'a2', controller: 'p1', location: 'base' });
+    const d1 = makeUnit({ instanceId: 'd1', controller: 'p2', location: 'bf1' });
+    const state = makeState([a1, a2, d1], [{ id: 'bf1', controller: 'p2', contested: false, scoredByThisTurn: [] }]);
+
+    moveUnits(state, ['a1', 'a2'], 'bf1');
+
+    expect([a1, a2].map((u) => [u.location, u.ready, u.combatRole])).toEqual([
+      ['bf1', false, 'attacking'],
+      ['bf1', false, 'attacking'],
+    ]);
+    expect(d1.combatRole).toBe('defending');
+  });
+
+  it("refuses Battlefield-to-Battlefield without Ganking (rule 722)", () => {
+    const unit = makeUnit({ instanceId: 'u1', controller: 'p1', location: 'bf1' });
+    const state = makeState([unit], [
+      { id: 'bf1', controller: 'p1', contested: false, scoredByThisTurn: [] },
+      { id: 'bf2', controller: null, contested: false, scoredByThisTurn: [] },
+    ]);
+
+    expect(() => moveUnits(state, ['u1'], 'bf2')).toThrow();
+  });
+
+  it("refuses to mix two players' Units in one Move", () => {
+    const state = makeState(
+      [makeUnit({ instanceId: 'mine', controller: 'p1', location: 'base' }), makeUnit({ instanceId: 'theirs', controller: 'p2', location: 'base' })],
+      [{ id: 'bf1', controller: null, contested: false, scoredByThisTurn: [] }],
+    );
+
+    expect(() => moveUnits(state, ['mine', 'theirs'], 'bf1')).toThrow();
   });
 });

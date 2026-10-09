@@ -201,7 +201,7 @@ describe('across turns: a Unit played this turn can attack on your next one', ()
     expect(played.units.find((u) => u.instanceId === 'wurm')?.ready).toBe(true);
     const result = canWin(played, 'p1');
     expect(result.won).toBe(true);
-    expect(result.line[0]).toEqual({ type: 'moveUnit', unitInstanceId: 'wurm', destination: 'bf1' });
+    expect(result.line[0]).toEqual({ type: 'moveUnits', unitInstanceIds: ['wurm'], destination: 'bf1' });
   });
 });
 
@@ -213,7 +213,7 @@ describe('Hold only scores battlefields you still have Units at', () => {
     state.players.p1.deck = [makeCard('a')];
     state.players.p2.deck = [makeCard('b')];
 
-    const next = applyAction(state, { type: 'moveUnit', unitInstanceId: 'u1', destination: 'base' });
+    const next = applyAction(state, { type: 'moveUnits', unitInstanceIds: ['u1'], destination: 'base' });
     passTurn(next);
     passTurn(next);
 

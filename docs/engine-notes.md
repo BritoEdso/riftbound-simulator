@@ -22,9 +22,9 @@ Key facts already encoded in `src/rules-engine/`:
   Attacker is whoever just applied Contested status). Moving into an
   uncontrolled, empty battlefield Contests it with no combat roles, and a
   non-combat Showdown (rule 548.2, `showdown.ts`) settles Control once it
-  ends. Battlefield-to-battlefield movement only exists
-  via the Ganking keyword (rule 722), which no `CardDefinition` has, so
-  it's not modeled; the "can't move to a battlefield with 2 other players
+  ends. `moveUnits` moves a group sharing one destination (rule ~596).
+  Battlefield-to-battlefield movement only exists via the Ganking keyword
+  (rule 722), which no `CardDefinition` has, so it throws; the "can't move to a battlefield with 2 other players
   already present" restriction (141.2.a.1) is a 3+-player rule that never
   applies in this 1v1-only project.
 - **Combat** (rules 620-632): attacker sums Might, defender sums Might; each

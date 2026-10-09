@@ -81,7 +81,7 @@ describe('beginShowdown (rules 548-550)', () => {
 
   it('opens a non-combat Showdown at an uncontrolled battlefield, with Focus to the player who arrived', () => {
     const state = makeScoutState();
-    const moved = applyAction(state, { type: 'moveUnit', unitInstanceId: 'scout', destination: 'bf1' });
+    const moved = applyAction(state, { type: 'moveUnits', unitInstanceIds: ['scout'], destination: 'bf1' });
 
     beginShowdown(moved, 'bf1');
 
@@ -131,7 +131,7 @@ describe('Focus and passing (rules 553-555)', () => {
   it('a non-combat Showdown that everyone passes through hands the arriving player Control and a Conquer Score', () => {
     const state = makeScoutState();
     state.players.p1.points = 3;
-    let next = applyAction(state, { type: 'moveUnit', unitInstanceId: 'scout', destination: 'bf1' });
+    let next = applyAction(state, { type: 'moveUnits', unitInstanceIds: ['scout'], destination: 'bf1' });
     next = applyAction(next, { type: 'beginShowdown', battlefieldId: 'bf1' });
     next = applyAction(next, { type: 'pass', playerId: 'p1' });
     next = applyAction(next, { type: 'pass', playerId: 'p2' });
@@ -163,7 +163,7 @@ describe('timing: the Action keyword means "playable in Showdowns" (rule 718)', 
 
     const types = new Set(legalActions(state, 'p1').map((a) => a.type));
 
-    expect(types.has('moveUnit')).toBe(false);
+    expect(types.has('moveUnits')).toBe(false);
     expect(types.has('playUnit')).toBe(false);
     expect(types.has('playSpell')).toBe(true);
   });

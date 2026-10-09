@@ -1,37 +1,56 @@
 import { performCleanup } from './cleanup';
 import { findUnit } from './queries';
-import { GameState } from './types';
+import { GameState, UnitInPlay } from './types';
 
 export interface MoveResult {
   contested: boolean;
 }
 
-// Rule 140-141 — Standard Move: a Unit exhausts itself to move from its
-// controller's Base to a Battlefield, or from a Battlefield back to Base.
-// (Battlefield-to-Battlefield only exists via the Ganking keyword, rule
-// 722 — no CardDefinition has it yet, so it's not modeled.) Rule
-// 141.2.a.1's "can't move to a Battlefield with 2 other players' Units
+// Rule 140-141 — Standard Move: Units exhaust themselves to move from
+// their controller's Base to a Battlefield, or from a Battlefield back to
+// Base. Several Units may move together if they share a destination, even
+// from different origins (rule ~596) — and since a Combat or Showdown opens
+// at the Cleanup right after the Move, that's the only way for more than
+// one of them to be in it. Battlefield-to-Battlefield only exists via the
+// Ganking keyword (rule 722) — no CardDefinition has it, so it throws.
+// Rule 141.2.a.1's "can't move to a Battlefield with 2 other players' Units
 // already present" is a 3+-player restriction; this project is 1v1 only
 // (see CLAUDE.md), so it never applies and isn't checked.
-export function moveUnit(state: GameState, unitInstanceId: string, destination: string): MoveResult {
-  const result = arrive(state, unitInstanceId, destination);
+export function moveUnits(state: GameState, unitInstanceIds: string[], destination: string): MoveResult {
+  const units = unitInstanceIds.map((id) => findUnit(state, id));
+  if (units.length === 0) throw new Error('A Move needs at least one Unit');
+  const mover = units[0].controller;
+  for (const unit of units) {
+    if (unit.controller !== mover) throw new Error('Units moving together must share a controller');
+    if (!unit.ready) throw new Error(`Unit already Exhausted: ${unit.instanceId}`);
+    if (unit.location === destination) throw new Error(`${unit.instanceId} is already at ${destination}`);
+    if (unit.location !== 'base' && destination !== 'base') {
+      throw new Error(`${unit.instanceId} can't move Battlefield to Battlefield without Ganking`);
+    }
+  }
+
+  const result = arrive(state, units, destination);
   // Rule 518: a Cleanup follows every completed Move — which is where a
-  // Battlefield the mover just left empty loses its Control.
+  // Battlefield the movers just left empty loses its Control.
   performCleanup(state);
   return result;
 }
 
-function arrive(state: GameState, unitInstanceId: string, destination: string): MoveResult {
-  const unit = findUnit(state, unitInstanceId);
-  if (!unit.ready) {
-    throw new Error(`Unit already Exhausted: ${unitInstanceId}`);
+// A single Unit's Standard Move.
+export function moveUnit(state: GameState, unitInstanceId: string, destination: string): MoveResult {
+  return moveUnits(state, [unitInstanceId], destination);
+}
+
+function arrive(state: GameState, units: UnitInPlay[], destination: string): MoveResult {
+  for (const unit of units) {
+    unit.ready = false; // Rule 140.4: Exhausting the Unit is the cost.
+    unit.location = destination;
   }
-  unit.ready = false; // Rule 140.4: Exhausting the Unit is the cost.
-  unit.location = destination;
+  const mover = units[0].controller;
 
   if (destination === 'base') {
     // Leaving a Battlefield isn't itself a Combat-triggering action.
-    unit.combatRole = null;
+    for (const unit of units) unit.combatRole = null;
     return { contested: false };
   }
 
@@ -39,7 +58,7 @@ function arrive(state: GameState, unitInstanceId: string, destination: string): 
   if (!battlefield) throw new Error(`Unknown battlefield: ${destination}`);
 
   const unitsHere = state.units.filter((u) => u.location === destination);
-  const opposingUnitsPresent = unitsHere.some((u) => u.controller !== unit.controller);
+  const opposingUnitsPresent = unitsHere.some((u) => u.controller !== mover);
 
   if (battlefield.controller === null && !opposingUnitsPresent) {
     // Rule 548.2: arriving at an empty, uncontrolled Battlefield Contests it
@@ -50,7 +69,7 @@ function arrive(state: GameState, unitInstanceId: string, destination: string): 
     return { contested: true };
   }
 
-  if (battlefield.controller === unit.controller) {
+  if (battlefield.controller === mover) {
     // Already yours — reinforcing, not contesting anything.
     return { contested: false };
   }
@@ -64,7 +83,7 @@ function arrive(state: GameState, unitInstanceId: string, destination: string): 
   // a fight resolves, so there's never stale state here to preserve.
   battlefield.contested = true;
   for (const u of unitsHere) {
-    u.combatRole = u.controller === unit.controller ? 'attacking' : 'defending';
+    u.combatRole = u.controller === mover ? 'attacking' : 'defending';
   }
   return { contested: true };
 }

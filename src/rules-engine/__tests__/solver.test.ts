@@ -165,7 +165,7 @@ describe("moveUnit is what gets a Unit into combat at all (rule 140-141)", () =>
     // also leads to a win. What's actually being proven here is that *some*
     // moveUnit is required at all: without one, no unit's combatRole is
     // ever set, so resolveCombat is never even legalActions-eligible.
-    expect(result.line.some((a) => a.type === "moveUnit" && a.unitInstanceId === "attacker")).toBe(true);
+    expect(result.line.some((a) => a.type === "moveUnits" && a.unitInstanceIds.includes("attacker"))).toBe(true);
     expect(result.line.some((a) => a.type === "resolveCombat")).toBe(true);
   });
 
@@ -507,7 +507,7 @@ describe("Scoring is a consequence of gaining Control, not a free Action (rule 6
     state.battlefields = [{ id: "bf1", controller: null, contested: false, scoredByThisTurn: [] }];
     state.players.p1.points = 6;
 
-    let next = applyAction(state, { type: "moveUnit", unitInstanceId: "scout", destination: "bf1" });
+    let next = applyAction(state, { type: "moveUnits", unitInstanceIds: ["scout"], destination: "bf1" });
     expect(next.battlefields[0].controller).toBeNull();
     next = applyAction(next, { type: "beginShowdown", battlefieldId: "bf1" });
     next = applyAction(next, { type: "pass", playerId: "p1" });
@@ -523,7 +523,7 @@ describe("Scoring is a consequence of gaining Control, not a free Action (rule 6
     state.battlefields = [{ id: "bf1", controller: "p1", contested: false, scoredByThisTurn: [] }];
     state.players.p1.points = 6;
 
-    const next = applyAction(state, { type: "moveUnit", unitInstanceId: "scout", destination: "bf1" });
+    const next = applyAction(state, { type: "moveUnits", unitInstanceIds: ["scout"], destination: "bf1" });
 
     expect(next.players.p1.points).toBe(6);
     expect(next.battlefields[0].scoredByThisTurn).toEqual([]);
@@ -581,5 +581,46 @@ describe("Control loss and immediate wins inside the search", () => {
     state.players.p1.points = 7;
 
     expect(canWin(state, "p1").won).toBe(false);
+  });
+});
+
+describe("group moves: two attackers that only win together (rule ~596)", () => {
+  function makeTwoVsOneState() {
+    // Two Might-3 Units at base vs a Might-5 defender. Either one alone
+    // dies (3 < 5, takes 5); together they deal 6 and kill it.
+    const state = makeGameState([
+      makeUnit({ instanceId: "a1", controller: "p1", location: "base", might: 3, baseMight: 3 }),
+      makeUnit({ instanceId: "a2", controller: "p1", location: "base", might: 3, baseMight: 3 }),
+      makeUnit({ instanceId: "defender", controller: "p2", location: "bf1", might: 5, baseMight: 5 }),
+    ]);
+    state.battlefields = [{ id: "bf1", controller: "p2", contested: false, scoredByThisTurn: [] }];
+    state.players.p1.points = 7;
+    return state;
+  }
+
+  it("finds the line that moves both together", () => {
+    const result = canWin(makeTwoVsOneState(), "p1");
+
+    expect(result.won).toBe(true);
+    expect(result.line[0]).toEqual({ type: "moveUnits", unitInstanceIds: ["a1", "a2"], destination: "bf1" });
+  });
+
+  it("can't win if only one of them is Ready — Combat starts before the second could follow", () => {
+    const state = makeTwoVsOneState();
+    state.units[1].ready = false;
+
+    expect(canWin(state, "p1").won).toBe(false);
+  });
+
+  it("never offers Battlefield-to-Battlefield moves", () => {
+    const state = makeGameState([makeUnit({ instanceId: "u1", controller: "p1", location: "bf1" })]);
+    state.battlefields = [
+      { id: "bf1", controller: "p1", contested: false, scoredByThisTurn: [] },
+      { id: "bf2", controller: null, contested: false, scoredByThisTurn: [] },
+    ];
+
+    const destinations = legalActions(state, "p1").flatMap((a) => (a.type === "moveUnits" ? [a.destination] : []));
+
+    expect(destinations).toEqual(["base"]);
   });
 });

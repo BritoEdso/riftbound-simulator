@@ -3,7 +3,7 @@ import { isPlayableNow, passPriority, playSpell, priorityHolder } from "./chain"
 import { canAffordCost, payCost } from "./cost";
 import { SPELLS } from "./effects";
 import { winner } from "./queries";
-import { moveUnit } from "./movement";
+import { moveUnits } from "./movement";
 import { exhaustRuneForEnergy, recycleRuneForPower } from "./rune";
 import { beginShowdown, combatDamageDue, finishCombat, pendingShowdowns } from "./showdown";
 import { GameState, PlayerId, UnitInPlay } from "./types";
@@ -42,7 +42,8 @@ export type Action =
       // or a battlefield they already control.
       location: string;
     }
-  | { type: "moveUnit"; unitInstanceId: string; destination: string };
+  // One Standard Move of one or more Units to a shared destination.
+  | { type: "moveUnits"; unitInstanceIds: string[]; destination: string };
 
 // All orderings of `items` — used to turn "which equal-priority target gets
 // damage first" into a set of distinct Actions for the search to try. Only
@@ -55,6 +56,15 @@ function permutations<T>(items: T[]): T[][] {
     const rest = [...items.slice(0, i), ...items.slice(i + 1)];
     return permutations(rest).map((p) => [item, ...p]);
   });
+}
+
+// Every non-empty subset of `items`, smallest groups first.
+function nonEmptySubsets<T>(items: T[]): T[][] {
+  const subsets: T[][] = [];
+  for (let mask = 1; mask < 1 << items.length; mask++) {
+    subsets.push(items.filter((_, i) => mask & (1 << i)));
+  }
+  return subsets.sort((a, b) => a.length - b.length);
 }
 
 // Orderings to try for one side's damage assignment: every permutation when
@@ -106,7 +116,7 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
 
   // No "score" Action: Scoring isn't something a player chooses to do
   // (rule 630). Conquer happens automatically when Control is gained —
-  // inside combat.ts's resolveCombat and movement.ts's moveUnit — and Hold
+  // inside combat.ts's resolveCombat and showdown.ts — and Hold
   // only happens in the Beginning Phase, which is already over by the time
   // the solver's single Action Phase search starts.
 
@@ -187,17 +197,21 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
   // lets the solver actually get a Unit into combat — see movement.ts for
   // what happens to combatRole/Contested status when it arrives.
   // Not in a Closed State or a Showdown (rule ~596).
-  const moveUnitActions: Action[] = state.units
-    .filter((u) => neutralOpen && u.controller === playerId && u.ready)
-    .flatMap((u) =>
-      ["base", ...state.battlefields.map((bf) => bf.id)]
-        .filter((destination) => destination !== u.location)
-        .map((destination) => ({
-          type: "moveUnit" as const,
-          unitInstanceId: u.instanceId,
-          destination,
-        })),
+  // Every non-empty group of Ready Units that can legally share a
+  // destination: from base to a battlefield, or from battlefields back to
+  // base (no Ganking, so never battlefield to battlefield). 2^n groups per
+  // destination — fine for the handful of Units a scenario has.
+  const ownReadyUnits = state.units.filter((u) => neutralOpen && u.controller === playerId && u.ready);
+  const moveUnitActions: Action[] = ["base", ...state.battlefields.map((bf) => bf.id)].flatMap((destination) => {
+    const eligible = ownReadyUnits.filter(
+      (u) => u.location !== destination && (u.location === "base" || destination === "base"),
     );
+    return nonEmptySubsets(eligible).map((group) => ({
+      type: "moveUnits" as const,
+      unitInstanceIds: group.map((u) => u.instanceId),
+      destination,
+    }));
+  });
 
   // Pass first: in canWin's opponent turns, the first reply tried is the
   // one whose line gets reported, and "they let it resolve" is the most
@@ -261,8 +275,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       });
       break;
     }
-    case "moveUnit":
-      moveUnit(next, action.unitInstanceId, action.destination);
+    case "moveUnits":
+      moveUnits(next, action.unitInstanceIds, action.destination);
       break;
   }
   return next;
