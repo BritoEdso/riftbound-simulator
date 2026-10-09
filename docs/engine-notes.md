@@ -135,3 +135,10 @@ Key facts already encoded in `src/rules-engine/`:
   Awaken readies it, and `canWin` finds the attack. The Rune Pool empties
   at the end of each Draw Phase and each turn, for every player
   (`turn.ts`; see `docs/turn-structure.md`).
+
+- **Solver performance:** `canWin` caches every position (serialized
+  `GameState`) it has proven *not* to win, for the rest of that call. The
+  same position is reached by many move orders (tap rune A then B vs. B
+  then A), and proving "no win" visits all of them — this took the
+  Two Fronts "dead end" checks from ~13s to well under a second. Only
+  losses are cached; a win returns at once, and its line is path-dependent.

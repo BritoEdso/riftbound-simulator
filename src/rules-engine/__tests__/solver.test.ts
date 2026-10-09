@@ -44,7 +44,7 @@ function playAndResolve(state: GameState, playerId: string, cardId: string, targ
 // bf1's Combat, with its Showdown already closed (both players passed) —
 // the point where the Damage Step's resolveCombat is the next Action.
 function withClosedCombatShowdown(state: GameState): GameState {
-  state.showdown = { battlefieldId: "bf1", isCombat: true, focus: "p1", consecutivePasses: 2 };
+  state.showdown = { battlefieldId: "bf1", isCombat: true, focus: "p1", consecutivePasses: 2, pendingTriggers: [] };
   return state;
 }
 

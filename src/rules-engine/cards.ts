@@ -6,7 +6,7 @@ import { CardDefinition } from './types';
 // down and their original source is disputed/unverified — see the
 // "Inconsistency to resolve" note in CLAUDE.md's Card data section; don't
 // treat either claim about them as settled. OGN-011 and OGN-009 were
-// transcribed directly from the official gallery.
+// transcribed directly from the official gallery, as was OGN-119.
 export const CARD_DEFINITIONS: Record<string, CardDefinition> = {
   'OGN-058': {
     id: 'OGN-058',
@@ -48,5 +48,20 @@ export const CARD_DEFINITIONS: Record<string, CardDefinition> = {
     powerCost: { Fury: 1 },
     keywords: ['Action'],
     rulesText: 'Deal 3 to a unit at a battlefield.',
+  },
+  // Champion Unit, tags Ahri/Ionia. The gallery data gives its Power cost
+  // only as "1" with no domain — Mind is inferred from the card's own
+  // domain (see docs/cards/ahri.md). Its triggered ability lives in
+  // effects.ts's ABILITIES.
+  'OGN-119': {
+    id: 'OGN-119',
+    name: 'Ahri, Inquisitive',
+    type: 'Unit',
+    domains: ['Mind'],
+    energyCost: 3,
+    powerCost: { Mind: 1 },
+    might: 3,
+    keywords: [],
+    rulesText: 'When I attack or defend, give an enemy unit here -2 Might this turn, to a minimum of 1 Might.',
   },
 };

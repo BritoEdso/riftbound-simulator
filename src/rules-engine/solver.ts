@@ -5,7 +5,14 @@ import { SPELLS } from "./effects";
 import { winner } from "./queries";
 import { moveUnits } from "./movement";
 import { exhaustRuneForEnergy, recycleRuneForPower } from "./rune";
-import { beginShowdown, combatDamageDue, finishCombat, pendingShowdowns } from "./showdown";
+import {
+  beginShowdown,
+  chooseTriggerTarget,
+  combatDamageDue,
+  finishCombat,
+  pendingShowdowns,
+  pendingTriggerTargets,
+} from "./showdown";
 import { GameState, PlayerId, UnitInPlay } from "./types";
 
 export type Action =
@@ -13,6 +20,8 @@ export type Action =
   // at a Contested Battlefield. Forced — while any is pending it's the
   // only thing the Turn Player can do; the choice is just which one first.
   | { type: "beginShowdown"; battlefieldId: string }
+  // Target a triggered ability waiting to join a Combat's Initial Chain.
+  | { type: "chooseTriggerTarget"; playerId: PlayerId; targetInstanceId: string }
   // A Combat's Damage + Resolution Steps, once its Showdown has closed
   // (showdown.ts's combatDamageDue).
   | {
@@ -91,6 +100,16 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
   // happen first.
   if (neutralOpen && pendingShowdowns(state).length > 0) {
     return pendingShowdowns(state).map((battlefieldId) => ({ type: "beginShowdown" as const, battlefieldId }));
+  }
+
+  // A Combat's Initial Chain is being built: the only thing to do is pick
+  // the waiting trigger's target (showdown.ts).
+  if ((state.showdown?.pendingTriggers.length ?? 0) > 0) {
+    return pendingTriggerTargets(state).map((targetInstanceId) => ({
+      type: "chooseTriggerTarget" as const,
+      playerId,
+      targetInstanceId,
+    }));
   }
 
   // Rule 626: once a Combat's Showdown closes, damage happens next —
@@ -236,6 +255,9 @@ export function applyAction(state: GameState, action: Action): GameState {
     case "beginShowdown":
       beginShowdown(next, action.battlefieldId);
       break;
+    case "chooseTriggerTarget":
+      chooseTriggerTarget(next, action.playerId, action.targetInstanceId);
+      break;
     case "resolveCombat":
       finishCombat(next, {
         attackerDamageOrder: action.attackerDamageOrder,
@@ -295,13 +317,29 @@ export function canWin(
   playerId: PlayerId,
   line: Action[] = [],
 ): SolveResult {
+  return search(state, playerId, line, new Set());
+}
+
+const LOST: SolveResult = { won: false, line: [] };
+
+// `losing` remembers every position (serialized GameState) already proven
+// not to win, for the rest of this one canWin call. The same position is
+// reached by many orderings — tap rune A then B or B then A, move then tap
+// or tap then move — and proving "no win" means visiting all of them, so
+// without this an unwinnable scenario takes seconds instead of
+// milliseconds. Only losses are cached: a win returns immediately anyway,
+// and its line depends on the path taken to reach it.
+function search(state: GameState, playerId: PlayerId, line: Action[], losing: Set<string>): SolveResult {
   // Rule 633: winning is immediate — including for the opponent, e.g. via
   // a Burn Out this line caused. A line that hands them the game is dead,
   // not something to keep searching past.
   const gameWinner = winner(state);
   if (gameWinner !== null) {
-    return gameWinner === playerId ? { won: true, line } : { won: false, line: [] };
+    return gameWinner === playerId ? { won: true, line } : LOST;
   }
+
+  const key = JSON.stringify(state);
+  if (losing.has(key)) return LOST;
 
   const actor = priorityHolder(state);
   const actions = legalActions(state, actor);
@@ -309,25 +347,30 @@ export function canWin(
   if (actor === playerId) {
     // Our choice: one winning Action is enough.
     for (const action of actions) {
-      const next = applyAction(state, action);
-      const result = canWin(next, playerId, [...line, action]);
+      const result = search(applyAction(state, action), playerId, [...line, action], losing);
       if (result.won) return result;
     }
-    return { won: false, line: [] };
+    losing.add(key);
+    return LOST;
   }
 
   // The opponent's choice: a forced win has to survive every reply. With no
   // Chain or Showdown, the opponent holding Priority means it's their own
   // Neutral Open State — they can simply end their turn, and this search
   // doesn't cross turns.
-  if (state.chain === null && state.showdown === null) return { won: false, line: [] };
   let mainLine: SolveResult | null = null;
-  for (const action of actions) {
-    const result = canWin(applyAction(state, action), playerId, [...line, action]);
-    if (!result.won) return { won: false, line: [] };
-    mainLine ??= result;
+  if (state.chain !== null || state.showdown !== null) {
+    for (const action of actions) {
+      const result = search(applyAction(state, action), playerId, [...line, action], losing);
+      if (!result.won) {
+        mainLine = null;
+        break;
+      }
+      mainLine ??= result;
+    }
   }
-  return mainLine ?? { won: false, line: [] };
+  if (mainLine === null) losing.add(key);
+  return mainLine ?? LOST;
 }
 
 // Used by playUnit: the card leaves hand to become a UnitInPlay, not Trash.

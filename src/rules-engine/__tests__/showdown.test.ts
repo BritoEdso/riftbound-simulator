@@ -75,7 +75,7 @@ describe('beginShowdown (rules 548-550)', () => {
 
     beginShowdown(state, 'bf1');
 
-    expect(state.showdown).toEqual({ battlefieldId: 'bf1', isCombat: true, focus: 'p1', consecutivePasses: 0 });
+    expect(state.showdown).toEqual({ battlefieldId: 'bf1', isCombat: true, focus: 'p1', consecutivePasses: 0, pendingTriggers: [] });
     expect(priorityHolder(state)).toBe('p1');
   });
 
@@ -125,7 +125,7 @@ describe('Focus and passing (rules 553-555)', () => {
     passPriority(state, 'p1'); // Discipline resolves
 
     expect(state.chain).toBeNull();
-    expect(state.showdown).toMatchObject({ focus: 'p1', consecutivePasses: 0 });
+    expect(state.showdown).toMatchObject({ focus: 'p1', consecutivePasses: 0, pendingTriggers: [] });
   });
 
   it('a non-combat Showdown that everyone passes through hands the arriving player Control and a Conquer Score', () => {
@@ -192,5 +192,70 @@ describe('canWin across a Showdown', () => {
     giveHextechRay(state, 'p2');
 
     expect(canWin(state, 'p1').won).toBe(false);
+  });
+});
+
+describe('"When I attack or defend" triggers build the Combat\'s Initial Chain (rules 551.1.a, 625.1.c)', () => {
+  function makeAhriAttack(): GameState {
+    const state = makeState([
+      makeUnit({ instanceId: 'ahri', cardId: 'OGN-119', controller: 'p1', might: 3, baseMight: 3, combatRole: 'attacking' }),
+      makeUnit({ instanceId: 'big', controller: 'p2', might: 5, baseMight: 5, combatRole: 'defending' }),
+    ]);
+    return state;
+  }
+
+  it("Ahri's trigger waits for its controller to pick a target before anything else can happen", () => {
+    const state = makeAhriAttack();
+
+    beginShowdown(state, 'bf1');
+
+    expect(state.showdown?.pendingTriggers).toEqual([{ cardId: 'OGN-119', sourceInstanceId: 'ahri', controller: 'p1' }]);
+    expect(legalActions(state, 'p1')).toEqual([{ type: 'chooseTriggerTarget', playerId: 'p1', targetInstanceId: 'big' }]);
+  });
+
+  it('once targeted it sits on the Chain with the Attacker as Active Player; resolving gives -2 Might this turn', () => {
+    let state = makeAhriAttack();
+    state = applyAction(state, { type: 'beginShowdown', battlefieldId: 'bf1' });
+    state = applyAction(state, { type: 'chooseTriggerTarget', playerId: 'p1', targetInstanceId: 'big' });
+    expect(state.chain).toMatchObject({ priority: 'p1', items: [{ cardId: 'OGN-119', sourceInstanceId: 'ahri' }] });
+
+    state = applyAction(state, { type: 'pass', playerId: 'p1' });
+    state = applyAction(state, { type: 'pass', playerId: 'p2' });
+
+    expect(state.units.find((u) => u.instanceId === 'big')?.might).toBe(3);
+    expect(state.players.p1.trash).toEqual([]); // an ability isn't a card
+    expect(state.showdown?.focus).toBe('p2'); // the Chain emptied mid-Showdown
+  });
+
+  it('never takes a unit below 1 Might', () => {
+    let state = makeAhriAttack();
+    state.units[1].might = 2;
+    state = applyAction(state, { type: 'beginShowdown', battlefieldId: 'bf1' });
+    state = applyAction(state, { type: 'chooseTriggerTarget', playerId: 'p1', targetInstanceId: 'big' });
+    state = applyAction(state, { type: 'pass', playerId: 'p1' });
+    state = applyAction(state, { type: 'pass', playerId: 'p2' });
+
+    expect(state.units.find((u) => u.instanceId === 'big')?.might).toBe(1);
+  });
+
+  it("a defending Ahri's trigger is her controller's choice — the opponent's, here", () => {
+    const state = makeState([
+      makeUnit({ instanceId: 'attacker', controller: 'p1', might: 4, combatRole: 'attacking' }),
+      makeUnit({ instanceId: 'ahri', cardId: 'OGN-119', controller: 'p2', might: 3, combatRole: 'defending' }),
+    ]);
+
+    beginShowdown(state, 'bf1');
+
+    expect(priorityHolder(state)).toBe('p2');
+    expect(legalActions(state, 'p1')).toEqual([]);
+  });
+
+  it('a Unit without a triggered ability puts nothing on the Initial Chain', () => {
+    const state = makeDisciplineFight();
+
+    beginShowdown(state, 'bf1');
+
+    expect(state.showdown?.pendingTriggers).toEqual([]);
+    expect(state.chain).toBeNull();
   });
 });

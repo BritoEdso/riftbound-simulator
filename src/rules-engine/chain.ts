@@ -1,7 +1,7 @@
 import { CARD_DEFINITIONS } from './cards';
 import { performCleanup } from './cleanup';
 import { payCost } from './cost';
-import { SPELLS } from './effects';
+import { ABILITIES, SPELLS } from './effects';
 import { nextInTurnOrder } from './queries';
 import { passFocus, passFocusAfterChain } from './showdown';
 import { GameState, PlayerId } from './types';
@@ -24,12 +24,18 @@ import { GameState, PlayerId } from './types';
 // the Chain at all: a permanent that starts a Chain resolves immediately
 // with no Priority given (rule 538), so solver.ts's playUnit stays direct.
 
-// Who may act right now (rule 512.2): the Chain's Priority holder while one
-// exists (Closed State); else the player with Focus in a Showdown (Showdown
-// Open State); else the Turn Player (Neutral Open State — only they act
-// during their Action Phase).
+// Who may act right now (rule 512.2): first, anyone who still has to target
+// a trigger for a Combat's Initial Chain (showdown.ts); then the Chain's
+// Priority holder while one exists (Closed State); else the player with
+// Focus in a Showdown (Showdown Open State); else the Turn Player (Neutral
+// Open State — only they act during their Action Phase).
 export function priorityHolder(state: GameState): PlayerId {
-  return state.chain?.priority ?? state.showdown?.focus ?? state.turnPlayer;
+  return (
+    state.showdown?.pendingTriggers[0]?.controller ??
+    state.chain?.priority ??
+    state.showdown?.focus ??
+    state.turnPlayer
+  );
 }
 
 // Rules 507-510: what timing a card needs right now. Neutral Open: anything.
@@ -94,12 +100,19 @@ export function passPriority(state: GameState, playerId: PlayerId): void {
 function resolveNewestItem(state: GameState): void {
   const chain = state.chain!;
   const item = chain.items.pop()!;
-  const spell = SPELLS[item.cardId];
-  const targetIsLegal = spell
-    .legalTargets(state, item.controller)
-    .some((u) => u.instanceId === item.targetInstanceId);
-  spell.resolve(state, item, targetIsLegal);
-  state.players[item.controller].trash.push(CARD_DEFINITIONS[item.cardId]);
+  if (item.sourceInstanceId === undefined) {
+    const spell = SPELLS[item.cardId];
+    const targetIsLegal = spell.legalTargets(state, item.controller).some((u) => u.instanceId === item.targetInstanceId);
+    spell.resolve(state, item, targetIsLegal);
+    state.players[item.controller].trash.push(CARD_DEFINITIONS[item.cardId]);
+  } else {
+    // A triggered ability — not a card, so nothing goes to the Trash.
+    const ability = ABILITIES[item.cardId];
+    const targetIsLegal = ability
+      .legalTargets(state, item.controller, item.sourceInstanceId)
+      .some((u) => u.instanceId === item.targetInstanceId);
+    ability.resolve(state, item, targetIsLegal);
+  }
   performCleanup(state);
 
   const newest = chain.items[chain.items.length - 1];

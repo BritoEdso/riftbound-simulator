@@ -1,8 +1,9 @@
 import { performCleanup } from './cleanup';
 import { resolveCombat, CombatResult, DamageOrders } from './combat';
+import { ABILITIES } from './effects';
 import { nextInTurnOrder } from './queries';
 import { score } from './scoring';
-import { GameState, PlayerId } from './types';
+import { GameState, PendingTrigger, PlayerId } from './types';
 
 // Showdowns (rules 545-555) and the Combat steps built around one (620-628).
 // See docs/turn-structure.md.
@@ -13,9 +14,11 @@ import { GameState, PlayerId } from './types';
 // solver.ts offering only beginShowdown Actions while any Battlefield is
 // Contested, the Turn Player choosing which if there are several.
 //
-// Not modeled: Initial Chains ("When I attack"/"When I defend" triggers,
-// rule 551/625.1.c — no card has one), Assault/Shield, and inviting a
-// player (553.5 — only matters with 3+ players). Both players are always
+// A Combat's "When I attack"/"When I defend" triggers form its Initial
+// Chain (rule 551.1.a / 625.1.c): each controller picks their trigger's
+// target (chooseTriggerTarget), then the Chain plays out as normal with the
+// Attacker as Active Player (626.1.c). Not modeled: Assault/Shield, and
+// inviting a player (553.5 — only matters with 3+ players). Both players are always
 // Relevant: in 1v1, a Combat's Attacker and Defender are everyone (550.1),
 // and a non-combat Showdown makes all players Relevant anyway (550.2).
 
@@ -43,7 +46,69 @@ export function beginShowdown(state: GameState, battlefieldId: string): void {
     battlefield.contested = false;
     return;
   }
-  state.showdown = { battlefieldId, isCombat, focus: contester, consecutivePasses: 0 };
+  state.showdown = { battlefieldId, isCombat, focus: contester, consecutivePasses: 0, pendingTriggers: [] };
+  if (isCombat) {
+    state.showdown.pendingTriggers = attackDefendTriggers(state, battlefieldId, contester);
+    dropUntargetableTriggers(state);
+  }
+}
+
+// Every "When I attack or defend" ability of a Unit fighting here, ordered
+// for the Initial Chain: the Focus player's first, then the rest of Turn
+// Order (rule 551.1.a.1).
+function attackDefendTriggers(state: GameState, battlefieldId: string, focus: PlayerId): PendingTrigger[] {
+  const triggers = state.units
+    .filter((u) => u.location === battlefieldId && u.combatRole !== null)
+    .filter((u) => ABILITIES[u.cardId]?.trigger === 'attackOrDefend')
+    .map((u) => ({ cardId: u.cardId, sourceInstanceId: u.instanceId, controller: u.controller }));
+  return [
+    ...triggers.filter((t) => t.controller === focus),
+    ...triggers.filter((t) => t.controller !== focus),
+  ];
+}
+
+// The legal targets for the next trigger awaiting a choice.
+export function pendingTriggerTargets(state: GameState): string[] {
+  const next = state.showdown?.pendingTriggers[0];
+  if (!next) return [];
+  return ABILITIES[next.cardId]
+    .legalTargets(state, next.controller, next.sourceInstanceId)
+    .map((u) => u.instanceId);
+}
+
+// The next pending trigger's controller chooses its target, putting it on
+// the Initial Chain (creating the Chain if needed). The Attacker — who has
+// Focus — is the Chain's Active Player (rule 626.1.c), whoever's trigger
+// it is.
+export function chooseTriggerTarget(state: GameState, playerId: PlayerId, targetInstanceId: string): void {
+  const showdown = state.showdown;
+  const trigger = showdown?.pendingTriggers[0];
+  if (!showdown || !trigger) throw new Error('No trigger is waiting for a target');
+  if (trigger.controller !== playerId) throw new Error(`${playerId} doesn't control the waiting trigger`);
+  if (!pendingTriggerTargets(state).includes(targetInstanceId)) throw new Error(`${targetInstanceId} isn't a legal target`);
+
+  showdown.pendingTriggers.shift();
+  const item = {
+    cardId: trigger.cardId,
+    controller: trigger.controller,
+    targetInstanceId,
+    sourceInstanceId: trigger.sourceInstanceId,
+  };
+  if (state.chain === null) {
+    state.chain = { items: [item], priority: showdown.focus, consecutivePasses: 0 };
+  } else {
+    state.chain.items.push(item);
+  }
+  dropUntargetableTriggers(state);
+}
+
+// A triggered ability with no legal target can't be put on the Chain
+// (rule ~582) — skip it rather than asking for an impossible choice.
+function dropUntargetableTriggers(state: GameState): void {
+  const showdown = state.showdown!;
+  while (showdown.pendingTriggers.length > 0 && pendingTriggerTargets(state).length === 0) {
+    showdown.pendingTriggers.shift();
+  }
 }
 
 // True once every Relevant Player has passed in a row in a Combat's

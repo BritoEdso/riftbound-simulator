@@ -126,6 +126,11 @@ export interface Showdown {
   // 1v1), the Showdown ends (rule 554) — a Combat then moves on to its
   // Damage Step, which solver.ts offers as resolveCombat.
   consecutivePasses: number;
+  // Rule 551.1.a / 625.1.c: a Combat's "When I attack"/"When I defend"
+  // triggers waiting for their controllers to choose targets, in the order
+  // they go on the Initial Chain (Focus player's first, then Turn Order).
+  // While non-empty, those choices come before anything else.
+  pendingTriggers: PendingTrigger[];
 }
 
 // A played Spell waiting on the Chain to resolve. Its cost is already paid
@@ -133,9 +138,23 @@ export interface Showdown {
 // once it resolves (rule 543). Targets are chosen on play (rule ~557) and
 // re-checked for legality on resolution (rule 563.2.c).
 export interface ChainItem {
+  // The Spell's card, or — for a triggered ability — the card whose
+  // ability it is (effects.ts's SPELLS / ABILITIES are keyed by this).
   cardId: string;
   controller: PlayerId;
   targetInstanceId: string;
+  // Set only for a triggered ability (rule 582): the Unit it came from.
+  // Abilities aren't cards, so nothing goes to the Trash when one resolves.
+  sourceInstanceId?: string;
+}
+
+// A triggered ability that has triggered but hasn't been put on the Chain
+// yet, because its controller still has to choose its target (rule 582) —
+// e.g. a "When I attack" ability while a Combat's Initial Chain is built.
+export interface PendingTrigger {
+  cardId: string;
+  sourceInstanceId: string;
+  controller: PlayerId;
 }
 
 export interface Chain {
