@@ -22,12 +22,13 @@ export interface ExplanationStep {
 }
 
 export interface Scenario {
+  // URL slug: the trial lives at /legends/{legendId}/{id}. Must be unique
+  // across every Legend, since findScenario looks trials up by id alone.
   id: string;
   title: string;
   difficulty: Difficulty;
-  // The Legend the scenario teaches, by card-art id (components/cardImages.ts).
-  legendCardId: string;
-  legendName: string;
+  // The Legend whose trials this belongs to (legends.ts).
+  legendId: string;
   briefing: string;
   // Who the learner plays; every other player is driven automatically.
   learner: PlayerId;

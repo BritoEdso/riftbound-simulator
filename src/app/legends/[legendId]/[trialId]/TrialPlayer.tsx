@@ -9,10 +9,10 @@ import { priorityHolder } from "@/rules-engine/chain";
 import { combatDamageDue, pendingShowdowns } from "@/rules-engine/showdown";
 import { Action, applyAction, legalActions } from "@/rules-engine/solver";
 import { CardDefinition, Domain, GameState, PlayerId, RuneInPlay, UnitInPlay } from "@/rules-engine/types";
-import { findScenario, Scenario } from "@/scenarios";
+import { findLegend, findScenario, Scenario } from "@/scenarios";
 import { actionSubjects, describeAction, locationName, unitName } from "@/scenarios/describe";
 import { nextHint, runOpponent, trialStatus } from "@/scenarios/play";
-import styles from "../trial.module.css";
+import styles from "../../trial.module.css";
 
 type LogEntry = { by: "you" | "opponent"; text: string };
 type Snapshot = { game: GameState; log: LogEntry[] };
@@ -67,6 +67,7 @@ function playDing(): void {
 
 export default function TrialPlayer({ scenarioId }: { scenarioId: string }) {
   const scenario = findScenario(scenarioId)!;
+  const legend = findLegend(scenario.legendId)!;
   const learner = scenario.learner;
   const opponent = Object.keys(scenario.initialState().players).find((id) => id !== learner)!;
 
@@ -127,7 +128,7 @@ export default function TrialPlayer({ scenarioId }: { scenarioId: string }) {
   return (
     <main className={styles.game}>
       <header className={styles.hud}>
-        <Link href="/scenarios" className={styles.back} aria-label="All trials">
+        <Link href={`/legends/${legend.id}`} className={styles.back} aria-label={`All ${legend.champion} trials`}>
           ‹
         </Link>
         <div className={styles.hudTitle}>
@@ -135,7 +136,9 @@ export default function TrialPlayer({ scenarioId }: { scenarioId: string }) {
             {scenario.difficulty}
           </span>
           <h1>{scenario.title}</h1>
-          <span className={styles.hudLegend}>{scenario.legendName}</span>
+          <span className={styles.hudLegend}>
+            {legend.champion} · {legend.title}
+          </span>
         </div>
         <ul className={styles.objectives} aria-label="Objectives">
           {scenario.objectives.map((o) => (
@@ -191,7 +194,7 @@ export default function TrialPlayer({ scenarioId }: { scenarioId: string }) {
             <ScoreTrack game={game} learner={learner} opponent={opponent} />
           </div>
 
-          <SideRow {...board} playerId={learner} label="You" legendCardId={scenario.legendCardId} />
+          <SideRow {...board} playerId={learner} label="You" legendCardId={legend.cardId} />
 
           <div className={styles.hand} aria-label="Your hand">
             {game.players[learner].hand.map((card, i) => (
@@ -288,8 +291,8 @@ export default function TrialPlayer({ scenarioId }: { scenarioId: string }) {
               <button className={styles.primary} onClick={retry}>
                 Play again
               </button>
-              <Link href="/scenarios" className={styles.secondary}>
-                Back to trials
+              <Link href={`/legends/${legend.id}`} className={styles.secondary}>
+                More {legend.champion} trials
               </Link>
               <button className={styles.secondary} onClick={() => setVictoryDismissed(true)}>
                 View the board

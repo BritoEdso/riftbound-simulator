@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Rajdhani } from "next/font/google";
+import { Cinzel, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -7,11 +7,11 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-// Condensed display face for headings and the game HUD.
-const rajdhani = Rajdhani({
+// Carved, classical display face for headings and the game HUD.
+const cinzel = Cinzel({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["600", "700", "800"],
 });
 
 const geistMono = Geist_Mono({
@@ -30,12 +30,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${rajdhani.variable}`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable}`}>
       <body>
         {children}
         {/* Required by Riot's "Legal Jibber Jabber" policy — see CLAUDE.md's
             Card data section. */}
-        <footer style={{ marginTop: "auto", padding: "16px", fontSize: "12px", color: "var(--rift-muted)", textAlign: "center" }}>
+        <footer
+          style={{
+            marginTop: "auto",
+            padding: "16px",
+            fontSize: "12px",
+            color: "var(--rift-muted)",
+            textAlign: "center",
+            borderTop: "1px solid var(--rift-rule)",
+          }}
+        >
           Riftbound Simulator was created under Riot Games&apos; &quot;Legal Jibber Jabber&quot; policy using assets owned
           by Riot Games. Riot Games does not endorse or sponsor this project.
         </footer>

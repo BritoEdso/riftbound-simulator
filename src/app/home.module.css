@@ -1,0 +1,208 @@
+/* Home: the Legend picker. */
+
+.home {
+  width: 100%;
+  min-height: 100vh;
+  padding: 56px 16px 64px;
+  background:
+    radial-gradient(900px 420px at 50% 0%, rgba(240, 138, 36, 0.14), transparent 70%),
+    radial-gradient(1200px 600px at 50% 110%, rgba(79, 216, 196, 0.08), transparent 70%),
+    var(--background);
+}
+
+.hero {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.kicker {
+  font-family: var(--font-display), serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--rift-accent);
+}
+
+.hero h1 {
+  font-family: var(--font-display), serif;
+  font-size: clamp(38px, 7vw, 68px);
+  font-weight: 800;
+  line-height: 1.05;
+  margin: 10px 0 16px;
+  background: linear-gradient(180deg, #fff4d8 10%, var(--rift-gold) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero p {
+  color: #d8d0bd;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px auto 0;
+  max-width: 320px;
+  color: var(--rift-gold);
+  font-size: 12px;
+}
+
+.divider span {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--rift-gold), transparent);
+}
+
+.roster {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 22px;
+  max-width: 1080px;
+  margin: 44px auto 0;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(231, 192, 114, 0.35);
+  background: linear-gradient(180deg, #0b3a47, #062934);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 4px rgba(4, 33, 43, 0.7), inset 0 0 0 5px rgba(231, 192, 114, 0.12);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s;
+}
+
+a.legend:hover,
+a.legend:focus-visible {
+  transform: translateY(-6px);
+  border-color: var(--rift-gold);
+  box-shadow:
+    inset 0 0 0 4px rgba(4, 33, 43, 0.7),
+    inset 0 0 0 5px rgba(231, 192, 114, 0.3),
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    0 0 40px rgba(240, 138, 36, 0.18);
+  outline: none;
+}
+
+.legend[data-soon="true"] {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.portrait {
+  padding: 18px 26px 6px;
+  background: radial-gradient(circle at 50% 40%, rgba(240, 138, 36, 0.18), transparent 65%);
+}
+
+.portrait img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55);
+  transition: transform 0.35s ease;
+}
+
+a.legend:hover .portrait img {
+  transform: scale(1.03) rotate(-1deg);
+}
+
+.cardBack {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 744 / 1039;
+  border-radius: 10px;
+  border: 1px solid rgba(231, 192, 114, 0.3);
+  background:
+    repeating-linear-gradient(45deg, rgba(231, 192, 114, 0.06) 0 8px, transparent 8px 16px),
+    linear-gradient(160deg, #0d3a47, #04212b);
+}
+
+.cardBack span {
+  font-family: var(--font-display), serif;
+  font-size: 56px;
+  color: rgba(231, 192, 114, 0.5);
+}
+
+.nameplate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 14px 18px;
+  text-align: center;
+}
+
+.champion {
+  font-family: var(--font-display), serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--rift-gold);
+  line-height: 1;
+}
+
+.title {
+  font-size: 14px;
+  color: var(--rift-muted);
+}
+
+.domains {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.domains span {
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.domains [data-domain="Calm"] {
+  color: #5bb6ea;
+}
+.domains [data-domain="Mind"] {
+  color: #b585ef;
+}
+.domains [data-domain="Fury"] {
+  color: #ef6a5a;
+}
+.domains [data-domain="Body"] {
+  color: #7bd88f;
+}
+.domains [data-domain="Chaos"] {
+  color: #f0a35a;
+}
+.domains [data-domain="Order"] {
+  color: #e7d36a;
+}
+
+.trialCount {
+  margin-top: 10px;
+  font-family: var(--font-display), serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: var(--rift-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .legend,
+  .portrait img {
+    transition: none;
+  }
+}
+
+.legend[data-soon="true"] .champion {
+  font-size: 18px;
+  color: var(--rift-muted);
+}

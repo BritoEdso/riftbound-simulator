@@ -3,6 +3,7 @@ import { GameState } from "@/rules-engine/types";
 import { Action } from "@/rules-engine/solver";
 import { ahriTwoFronts } from "../ahri/twoFronts";
 import { describeAction } from "../describe";
+import { findLegend, SCENARIOS } from "../index";
 import { runOpponent, trialStatus } from "../play";
 
 // Plays the learner's Actions in order, letting the automatic opponent reply
@@ -88,5 +89,16 @@ describe("Two Fronts (Ahri, Intermediate)", () => {
       expect(describeAction(ahriTwoFronts, state, action)).not.toMatch(/undefined/);
       state = runOpponent(applyAction(state, action), "p1").state;
     }
+  });
+});
+
+describe("the trial registry", () => {
+  it("trial ids are unique across every Legend (they're URL slugs looked up by id alone)", () => {
+    const ids = SCENARIOS.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("every trial belongs to a registered Legend", () => {
+    expect(SCENARIOS.every((s) => findLegend(s.legendId) !== undefined)).toBe(true);
   });
 });

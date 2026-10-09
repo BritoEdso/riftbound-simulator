@@ -84,11 +84,10 @@ function scoredThisTurn(state: GameState, battlefieldId: string): boolean {
 }
 
 export const ahriTwoFronts: Scenario = {
-  id: "ahri-two-fronts",
+  id: "two-fronts",
   title: "Two Fronts",
   difficulty: "Intermediate",
-  legendCardId: "OGN-303",
-  legendName: "Nine-Tailed Fox (Ahri)",
+  legendId: "ahri",
   learner: "p1",
   briefing:
     "Both players are at 7 points — the next point wins. Your opponent holds Battlefield A with a single 5-Might unit, " +

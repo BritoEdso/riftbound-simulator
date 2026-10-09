@@ -1,23 +1,23 @@
 :root {
-  /* One dark "game table" theme everywhere — the app is a game trainer, and
-     the references it's modeled on (riftatlas, TCG Arena) are dark-only. */
+  /* One dark "game table" theme everywhere: deep teal felt, warm parchment
+     text, orange for things you can do, gold for ornament and victory. */
   color-scheme: dark;
 
-  --background: #0b1020;
-  --foreground: #e8ecf6;
+  --background: #04212b;
+  --foreground: #f3ecdc;
 
-  --rift-panel: #121a2e;
-  --rift-panel-code: #0f1628;
-  --rift-rule: #24304b;
-  --rift-muted: #8b96b0;
-  --rift-accent: #2bbde8;
-  --rift-accent-soft: #10324a;
+  --rift-panel: #0a2f3b;
+  --rift-panel-code: #072833;
+  --rift-rule: #1d4b58;
+  --rift-muted: #8fb0b5;
+  --rift-accent: #f08a24;
+  --rift-accent-soft: #3b2a16;
 
-  --rift-gold: #f0b947;
-  --rift-you: #2bbde8;
-  --rift-them: #f26b6b;
-  --rift-good: #4fd59a;
-  --rift-bad: #f26b6b;
+  --rift-gold: #e7c072;
+  --rift-you: #4fd8c4;
+  --rift-them: #ef6a5a;
+  --rift-good: #7bd88f;
+  --rift-bad: #ef6a5a;
 }
 
 html {
