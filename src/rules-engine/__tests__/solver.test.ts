@@ -452,3 +452,52 @@ describe("playUnit (rule 719.1.d.1: base or a battlefield you control)", () => {
     expect(final.players.p1.runeDeck).toEqual(["Fury"]); // the Recycled one, back at the bottom
   });
 });
+
+describe("Scoring is a consequence of gaining Control, not a free Action (rule 630)", () => {
+  it("can't win by 'Holding' a battlefield it already controls mid-turn — Hold only happens in the Beginning Phase", () => {
+    const state = makeGameState([]);
+    state.battlefields = [{ id: "bf1", controller: "p1", contested: false, scoredByThisTurn: [] }];
+    state.players.p1.points = 7;
+
+    expect(legalActions(state, "p1").some((a) => (a.type as string) === "score")).toBe(false);
+    expect(canWin(state, "p1").won).toBe(false);
+  });
+
+  it("conquering in combat Scores automatically — the winning line needs no separate score step", () => {
+    const state = makeGameState([
+      makeUnit({ instanceId: "attacker", controller: "p1", baseMight: 5, might: 5, combatRole: "attacking" }),
+      makeUnit({ instanceId: "defender", controller: "p2", baseMight: 3, might: 3, combatRole: "defending" }),
+    ]);
+    state.players.p1.points = 7;
+
+    const result = canWin(state, "p1");
+
+    expect(result.won).toBe(true);
+    expect(result.line).toEqual([
+      { type: "resolveCombat", battlefieldId: "bf1", attackerDamageOrder: undefined, defenderDamageOrder: undefined },
+    ]);
+  });
+
+  it("moving into an empty, uncontrolled battlefield establishes Control and so Scores via Conquer", () => {
+    const state = makeGameState([makeUnit({ instanceId: "scout", controller: "p1", location: "base" })]);
+    state.battlefields = [{ id: "bf1", controller: null, contested: false, scoredByThisTurn: [] }];
+    state.players.p1.points = 6;
+
+    const next = applyAction(state, { type: "moveUnit", unitInstanceId: "scout", destination: "bf1" });
+
+    expect(next.battlefields[0].controller).toBe("p1");
+    expect(next.battlefields[0].scoredByThisTurn).toEqual(["p1"]);
+    expect(next.players.p1.points).toBe(7);
+  });
+
+  it("reinforcing a battlefield you already control doesn't Score it again", () => {
+    const state = makeGameState([makeUnit({ instanceId: "scout", controller: "p1", location: "base" })]);
+    state.battlefields = [{ id: "bf1", controller: "p1", contested: false, scoredByThisTurn: [] }];
+    state.players.p1.points = 6;
+
+    const next = applyAction(state, { type: "moveUnit", unitInstanceId: "scout", destination: "bf1" });
+
+    expect(next.players.p1.points).toBe(6);
+    expect(next.battlefields[0].scoredByThisTurn).toEqual([]);
+  });
+});

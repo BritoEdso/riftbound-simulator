@@ -5,7 +5,7 @@ import { applyDiscipline, applyHextechRay, applyRetreat } from "./effects";
 import { findUnit } from "./queries";
 import { moveUnit } from "./movement";
 import { exhaustRuneForEnergy, recycleRuneForPower } from "./rune";
-import { score, ScoreMethod } from "./scoring";
+import { score } from "./scoring";
 import { GameState, PlayerId, UnitInPlay } from "./types";
 
 export type Action =
@@ -17,12 +17,6 @@ export type Action =
       // when there's only 0 or 1 such target, so no real choice exists.
       attackerDamageOrder?: string[];
       defenderDamageOrder?: string[];
-    }
-  | {
-      type: "score";
-      playerId: PlayerId;
-      battlefieldId: string;
-      method: ScoreMethod;
     }
   | { type: "playDiscipline"; targetInstanceId: string; playerId: string }
   | { type: "playRetreat"; targetInstanceId: string }
@@ -89,15 +83,11 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
       );
     });
 
-  const scoreActions: Action[] = state.battlefields
-    .filter(
-      (bf) =>
-        bf.controller === playerId && !bf.scoredByThisTurn.includes(playerId),
-    )
-    .flatMap((bf) => [
-      { type: "score", playerId, battlefieldId: bf.id, method: "hold" },
-      { type: "score", playerId, battlefieldId: bf.id, method: "conquer" },
-    ]);
+  // No "score" Action: Scoring isn't something a player chooses to do
+  // (rule 630). Conquer happens automatically when Control is gained — see
+  // applyAction's resolveCombat/moveUnit cases — and Hold only happens in
+  // the Beginning Phase, which is already over by the time the solver's
+  // single Action Phase search starts.
 
   const canAffordRetreat =
     state.players[playerId].hand.some((c) => c.id === "OGN-104") &&
@@ -200,7 +190,6 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
 
   return [
     ...combatActions,
-    ...scoreActions,
     ...retreatActions,
     ...disciplineActions,
     ...hextechRayActions,
@@ -218,15 +207,16 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
 export function applyAction(state: GameState, action: Action): GameState {
   const next = structuredClone(state);
   switch (action.type) {
-    case "resolveCombat":
-      resolveCombat(next, action.battlefieldId, {
+    case "resolveCombat": {
+      const result = resolveCombat(next, action.battlefieldId, {
         attackerDamageOrder: action.attackerDamageOrder,
         defenderDamageOrder: action.defenderDamageOrder,
       });
+      if (result.conquered && result.newController !== null) {
+        score(next, result.newController, action.battlefieldId, "conquer");
+      }
       break;
-    case "score":
-      score(next, action.playerId, action.battlefieldId, action.method);
-      break;
+    }
     case "playDiscipline":
       payCost(next, action.playerId, CARD_DEFINITIONS["OGN-058"]);
       moveCardFromHandToTrash(next, action.playerId, "OGN-058");
@@ -270,9 +260,19 @@ export function applyAction(state: GameState, action: Action): GameState {
       });
       break;
     }
-    case "moveUnit":
+    case "moveUnit": {
+      // Rule 181.4.c: moving into an empty, uncontrolled battlefield
+      // establishes Control outright — that's gaining Control, so it's a
+      // Conquer Score (rule 630) just like winning a Combat is.
+      const mover = findUnit(next, action.unitInstanceId).controller;
+      const battlefield = next.battlefields.find((bf) => bf.id === action.destination);
+      const controllerBefore = battlefield?.controller ?? null;
       moveUnit(next, action.unitInstanceId, action.destination);
+      if (battlefield && controllerBefore !== mover && battlefield.controller === mover) {
+        score(next, mover, battlefield.id, "conquer");
+      }
       break;
+    }
   }
   return next;
 }

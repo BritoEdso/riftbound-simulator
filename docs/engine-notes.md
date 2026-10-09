@@ -43,7 +43,16 @@ Key facts already encoded in `src/rules-engine/`:
   8**. Reaching your *final* point via Conquer only wins immediately if
   you've also Scored every other battlefield that turn — otherwise you draw a
   card instead and the game continues. A Hold always wins outright at match
-  point.
+  point. **Scoring is not a player-chosen `Action`** — `solver.ts` used to
+  offer a free `score` Action (Hold *or* Conquer) for any controlled
+  battlefield at any time, which let `canWin` report false wins (e.g. 7
+  points + an already-controlled battlefield "won" instantly via Hold).
+  Now `applyAction` calls `score(..., 'conquer')` automatically whenever
+  Control is *gained* — a Conquering `resolveCombat`, or a `moveUnit` into
+  an empty uncontrolled battlefield (rule 181.4.c) — and Hold is never
+  offered, since it only happens in the Beginning Phase and the solver
+  searches a single Action Phase. `score(..., 'hold')` stays in
+  `scoring.ts` for when a turn/phase system exists to call it.
 - **Drawing / Burn Out** (rules 516.2.b, 607, 609): `PlayerState.deck` is an
   ordered array — index 0 is the top. `draw(state, playerId, count)` in
   `deck.ts` moves cards from deck to hand, one at a time — if the deck is
