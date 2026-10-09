@@ -8,6 +8,7 @@ function makeState(
 ): GameState {
   return {
     turnPlayer: 'p1',
+    turnNumber: 1,
     victoryScore: 8,
     players: {
       p1: { id: 'p1', points: 0, hand: [], deck: [], runeDeck: p1RuneDeck, runesInPlay: p1RunesInPlay, energyPool: 0, powerPool: {}, trash: [] },

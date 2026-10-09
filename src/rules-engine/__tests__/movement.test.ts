@@ -19,6 +19,7 @@ function makeUnit(overrides: Partial<UnitInPlay>): UnitInPlay {
 function makeState(units: UnitInPlay[], battlefields: Battlefield[]): GameState {
   return {
     turnPlayer: 'p1',
+    turnNumber: 1,
     victoryScore: 8,
     players: {
       p1: { id: 'p1', points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },

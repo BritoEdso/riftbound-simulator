@@ -41,10 +41,8 @@ export interface UnitInPlay {
   // Rule 139.4: Units enter the Board Exhausted (ready: false) by default —
   // Accelerate (rule 717, no CardDefinition has it yet) is the only thing
   // that changes that. Standard Move (rule 140 — see movement.ts) costs
-  // Exhausting the Unit, so a freshly played Unit can't immediately move;
-  // nothing in this engine currently readies a Unit back (no Ready Step —
-  // no turn/phase system exists yet), matching the Rune Pool's own
-  // never-empties limitation.
+  // Exhausting the Unit, so a freshly played Unit can't move until its
+  // controller's next Awaken Phase readies it (turn.ts's awaken, rule 515.1).
   ready: boolean;
 }
 
@@ -82,9 +80,9 @@ export interface PlayerState {
   runesInPlay: RuneInPlay[];
   // The Rune Pool (rule 158): a conceptual stockpile of Energy/Power
   // available to pay costs, filled by exhausting/Recycling Runes (see
-  // rune.ts) and spent via cost.ts. Energy has no Domain. Real rules empty
-  // this every phase/turn (rule 160.1) — not enforced here, since no
-  // turn/phase system exists yet; see cost.ts.
+  // rune.ts) and spent via cost.ts. Energy has no Domain. Emptied for every
+  // player at the end of each Draw Phase and each turn (turn.ts) — it
+  // carries across the whole Action Phase in between.
   energyPool: number;
   // Power's Domain usually matches the Rune it came from (158) — see
   // PowerPool above.
@@ -97,6 +95,11 @@ export interface PlayerState {
 
 export interface GameState {
   turnPlayer: PlayerId;
+  // 1-based count of turns taken so far, across both players — turn 1 is
+  // the First Player's first turn, turn 2 the second player's first. Only
+  // read by turn.ts's Channel Phase (Duel's "the player going second
+  // channels an extra Rune during their first Channel Phase").
+  turnNumber: number;
   victoryScore: number;
   players: Record<PlayerId, PlayerState>;
   battlefields: Battlefield[];

@@ -52,7 +52,7 @@ Key facts already encoded in `src/rules-engine/`:
   an empty uncontrolled battlefield (rule 181.4.c) — and Hold is never
   offered, since it only happens in the Beginning Phase and the solver
   searches a single Action Phase. `score(..., 'hold')` stays in
-  `scoring.ts` for when a turn/phase system exists to call it.
+  `scoring.ts`; `turn.ts`'s `holdBattlefields` is its one caller.
 - **Drawing / Burn Out** (rules 516.2.b, 607, 609): `PlayerState.deck` is an
   ordered array — index 0 is the top. `draw(state, playerId, count)` in
   `deck.ts` moves cards from deck to hand, one at a time — if the deck is
@@ -122,11 +122,9 @@ Key facts already encoded in `src/rules-engine/`:
   (as opposed to in a pool) is explicitly unmodeled — `cost.ts` throws
   rather than guess, since no rule text shows a cost phrased that way and no
   `CardDefinition` has one. `playUnit`'s own Energy/Power payment (see
-  CLAUDE.md's Architecture section) is still correct and tested, but still can't surface
-  inside a `canWin`-found *winning line*: a unit from `playUnit` enters
-  Exhausted (rule 139.4) and, with no Ready Step modeled, can never become
-  Ready again — so it can never `moveUnit` into a fight. `moveUnit`
-  itself (see CLAUDE.md's Architecture section) *does* change verdicts, just never starting
-  from a unit `playUnit` created — only for units a scenario starts already
-  in play and Ready. Also not modeled: the Rune Pool emptying every
-  phase/turn (rule 160.1) — no turn/phase system exists yet.
+  CLAUDE.md's Architecture section) can't surface inside a *same-turn*
+  winning line — a played unit enters Exhausted (rule 139.4) — but
+  `turn.test.ts` proves it across turns: play Magma Wurm, `passTurn` twice,
+  Awaken readies it, and `canWin` finds the attack. The Rune Pool empties
+  at the end of each Draw Phase and each turn, for every player
+  (`turn.ts`; see `docs/turn-structure.md`).

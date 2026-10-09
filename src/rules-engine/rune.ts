@@ -14,14 +14,23 @@ export function channel(
 ): RuneInPlay[] {
   const player = state.players[playerId];
   const domains = player.runeDeck.splice(0, count);
-  const startIndex = player.runesInPlay.length;
-  const channeled: RuneInPlay[] = domains.map((domain, i) => ({
-    instanceId: `${playerId}-rune-${startIndex + i}`,
-    domain,
-    ready,
-  }));
-  player.runesInPlay.push(...channeled);
+  const channeled: RuneInPlay[] = domains.map((domain) => {
+    const rune = { instanceId: nextRuneInstanceId(player.runesInPlay, playerId), domain, ready };
+    player.runesInPlay.push(rune);
+    return rune;
+  });
   return channeled;
+}
+
+// Lowest `${playerId}-rune-N` not already in play. Not simply
+// runesInPlay.length: Recycling (below) shrinks runesInPlay, so a
+// length-based id handed out on a later turn's Channel would collide with a
+// rune that's still on the board.
+function nextRuneInstanceId(runesInPlay: RuneInPlay[], playerId: PlayerId): string {
+  const taken = new Set(runesInPlay.map((r) => r.instanceId));
+  let n = 0;
+  while (taken.has(`${playerId}-rune-${n}`)) n++;
+  return `${playerId}-rune-${n}`;
 }
 
 // A Basic Rune's first ability, "[T]: Add [1]" (rule 156.2.a / 593.3's

@@ -17,6 +17,7 @@ function makeCard(energyCost: number, powerCost: CardDefinition['powerCost'] = {
 function makeState(energyPool: number, powerPool: PowerPool = {}): GameState {
   return {
     turnPlayer: 'p1',
+    turnNumber: 1,
     victoryScore: 8,
     players: {
       p1: { id: 'p1', points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool, powerPool, trash: [] },

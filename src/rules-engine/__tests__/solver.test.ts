@@ -33,6 +33,7 @@ function makeUnit(overrides: Partial<UnitInPlay>): UnitInPlay {
 function makeGameState(units: UnitInPlay[]): GameState {
   return {
     turnPlayer: "p1",
+    turnNumber: 1,
     victoryScore: 8,
     players: {
       p1: { id: "p1", points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },
@@ -353,7 +354,7 @@ describe("legalActions: resolveCombat damage-order choices", () => {
   });
 });
 
-describe("playUnit (rule 719.1.d.1: base or a battlefield you control)", () => {
+describe("playUnit (718/725 examples: base or a battlefield you control)", () => {
   function makeStateWithMagmaWurmInHand() {
     const state = makeGameState([]);
     state.battlefields = [

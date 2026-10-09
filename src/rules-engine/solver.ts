@@ -30,7 +30,8 @@ export type Action =
       // Generated when the Action is built, not when it's applied — see
       // legalActions's playUnitActions for why that's safe here.
       instanceId: string;
-      // Rule 719.1.d.1: a Unit can only be played to its controller's base
+      // Rules text in the 718/725 Action/Reaction examples (not 719, which is
+      // Assault): a Unit can only be played to its controller's base
       // or a battlefield they already control.
       location: string;
     }
@@ -143,7 +144,7 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
     runeInstanceId: r.instanceId,
   }));
 
-  // Rule 719.1.d.1: a Unit enters play at its controller's base or a
+  // Per the 718/725 Action/Reaction examples: a Unit enters play at its controller's base or a
   // battlefield they already control. One Action per (affordable Unit card
   // in hand) x (valid location) — deduped by cardId first, since hand cards
   // have no per-copy identity (see CLAUDE.md), so two copies of the same
