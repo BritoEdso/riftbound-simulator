@@ -502,3 +502,53 @@ describe("Scoring is a consequence of gaining Control, not a free Action (rule 6
     expect(next.battlefields[0].scoredByThisTurn).toEqual([]);
   });
 });
+
+describe("Control loss and immediate wins inside the search", () => {
+  it("Hextech Ray killing the only defender drops its Control; the Combat's Conquer then hands it over", () => {
+    const state = makeGameState([
+      makeUnit({ instanceId: "attacker", controller: "p1", might: 1, combatRole: "attacking" }),
+      makeUnit({ instanceId: "defender", controller: "p2", might: 3, combatRole: "defending" }),
+    ]);
+    state.players.p1.hand = [CARD_DEFINITIONS["OGN-009"]];
+    state.players.p1.energyPool = 1;
+    state.players.p1.powerPool = { Fury: 1 };
+
+    const rayed = applyAction(state, { type: "playHextechRay", targetInstanceId: "defender", playerId: "p1" });
+    expect(rayed.battlefields[0].controller).toBeNull();
+
+    const fought = applyAction(rayed, { type: "resolveCombat", battlefieldId: "bf1" });
+    expect(fought.battlefields[0].controller).toBe("p1");
+    expect(fought.players.p1.points).toBe(1);
+  });
+
+  it("Retreating your last Unit off a battlefield gives up Control of it", () => {
+    const state = makeGameState([makeUnit({ instanceId: "lone", controller: "p1", location: "bf1" })]);
+    state.battlefields = [{ id: "bf1", controller: "p1", contested: false, scoredByThisTurn: [] }];
+    state.players.p1.hand = [CARD_DEFINITIONS["OGN-104"]];
+    state.players.p1.energyPool = 10;
+    state.players.p1.powerPool = { Universal: 10 };
+
+    const next = applyAction(state, { type: "playRetreat", targetInstanceId: "lone" });
+
+    expect(next.battlefields[0].controller).toBeNull();
+  });
+
+  it("a line that hands the opponent their winning point is dead, even if it later reaches 8 itself", () => {
+    // p1 at 7 with an empty deck and trash: Conquering bf1 first (bf2 not yet
+    // Scored) means "draw a card instead" -> Burn Out -> p2 (at 7) reaches 8
+    // and wins on the spot. Conquering bf2 afterwards must not count.
+    const state = makeGameState([
+      makeUnit({ instanceId: "a1", controller: "p1", location: "bf1", might: 5, combatRole: "attacking" }),
+      makeUnit({ instanceId: "d1", controller: "p2", location: "bf1", might: 1, combatRole: "defending" }),
+      makeUnit({ instanceId: "a2", controller: "p1", location: "bf2", might: 5, combatRole: "attacking" }),
+      makeUnit({ instanceId: "d2", controller: "p2", location: "bf2", might: 1, combatRole: "defending" }),
+    ]);
+    state.battlefields = [
+      { id: "bf1", controller: "p2", contested: true, scoredByThisTurn: [] },
+      { id: "bf2", controller: "p2", contested: true, scoredByThisTurn: [] },
+    ];
+    state.players.p1.points = 7;
+
+    expect(canWin(state, "p1").won).toBe(false);
+  });
+});

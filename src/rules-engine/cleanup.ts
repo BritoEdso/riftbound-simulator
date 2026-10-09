@@ -30,3 +30,29 @@ export function cleanupLethalUnits(state: GameState): UnitInPlay[] {
 
   return killed;
 }
+
+// Rule ~181: "If a player has no Units at a Battlefield, they have no
+// Control." Control is stored on the Battlefield rather than derived, so
+// this re-checks it at every Cleanup — the moments real rules say state
+// gets reconciled (a Move, a Combat, a Chain item resolving, end of turn).
+// Holds even while Contested: an attacker who kills every defender before
+// Combat (e.g. Hextech Ray) leaves the battlefield uncontrolled until the
+// Combat's Conquer hands it over.
+export function releaseControlOfEmptyBattlefields(state: GameState): void {
+  for (const battlefield of state.battlefields) {
+    const controller = battlefield.controller;
+    if (controller === null) continue;
+    const stillPresent = state.units.some((u) => u.location === battlefield.id && u.controller === controller);
+    if (!stillPresent) battlefield.controller = null;
+  }
+}
+
+// The Cleanup steps this engine models (rule 518-526), in rule order: kill
+// lethal Units, then reconcile Control. Returns the killed Units, same as
+// cleanupLethalUnits. Pending Combat/Showdown selection (steps 5-7) isn't
+// modeled — the solver offers resolveCombat as its own Action instead.
+export function performCleanup(state: GameState): UnitInPlay[] {
+  const killed = cleanupLethalUnits(state);
+  releaseControlOfEmptyBattlefields(state);
+  return killed;
+}

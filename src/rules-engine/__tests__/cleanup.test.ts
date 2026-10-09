@@ -1,5 +1,5 @@
 import { CARD_DEFINITIONS } from '../cards';
-import { cleanupLethalUnits } from '../cleanup';
+import { cleanupLethalUnits, performCleanup } from '../cleanup';
 import { GameState, UnitInPlay } from '../types';
 
 function makeUnit(overrides: Partial<UnitInPlay>): UnitInPlay {
@@ -78,5 +78,38 @@ describe('cleanupLethalUnits (rule 524.1/525)', () => {
     cleanupLethalUnits(state);
 
     expect(state.players.p1.trash).toEqual([]);
+  });
+});
+
+describe('performCleanup: "If a player has no Units at a Battlefield, they have no Control" (rule ~181)', () => {
+  it('drops Control of a battlefield its controller has no Units at, and keeps it where they do', () => {
+    const state = makeState([makeUnit({ instanceId: 'u1', controller: 'p1', location: 'bf-held' })]);
+    state.battlefields = [
+      { id: 'bf-held', controller: 'p1', contested: false, scoredByThisTurn: [] },
+      { id: 'bf-empty', controller: 'p1', contested: false, scoredByThisTurn: [] },
+    ];
+
+    performCleanup(state);
+
+    expect(state.battlefields.map((b) => b.controller)).toEqual(['p1', null]);
+  });
+
+  it("an opponent's Units being there doesn't count — the controller needs their own", () => {
+    const state = makeState([makeUnit({ instanceId: 'u1', controller: 'p2', location: 'bf1', combatRole: 'attacking' })]);
+    state.battlefields = [{ id: 'bf1', controller: 'p1', contested: true, scoredByThisTurn: [] }];
+
+    performCleanup(state);
+
+    expect(state.battlefields[0].controller).toBeNull();
+  });
+
+  it('kills lethal Units first, so a controller whose last Unit dies loses Control in the same Cleanup', () => {
+    const state = makeState([makeUnit({ instanceId: 'u1', controller: 'p1', location: 'bf1', might: 2, damage: 2 })]);
+    state.battlefields = [{ id: 'bf1', controller: 'p1', contested: false, scoredByThisTurn: [] }];
+
+    performCleanup(state);
+
+    expect(state.units).toEqual([]);
+    expect(state.battlefields[0].controller).toBeNull();
   });
 });

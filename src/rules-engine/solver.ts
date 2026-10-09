@@ -2,10 +2,9 @@ import { CARD_DEFINITIONS } from "./cards";
 import { resolveCombat } from "./combat";
 import { canAffordCost, payCost } from "./cost";
 import { applyDiscipline, applyHextechRay, applyRetreat } from "./effects";
-import { findUnit } from "./queries";
+import { findUnit, winner } from "./queries";
 import { moveUnit } from "./movement";
 import { exhaustRuneForEnergy, recycleRuneForPower } from "./rune";
-import { score } from "./scoring";
 import { GameState, PlayerId, UnitInPlay } from "./types";
 
 export type Action =
@@ -85,8 +84,9 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
     });
 
   // No "score" Action: Scoring isn't something a player chooses to do
-  // (rule 630). Conquer happens automatically when Control is gained — see
-  // applyAction's resolveCombat/moveUnit cases — and Hold only happens in
+  // (rule 630). Conquer happens automatically when Control is gained —
+  // inside combat.ts's resolveCombat and movement.ts's moveUnit — and Hold
+  // only happens in
   // the Beginning Phase, which is already over by the time the solver's
   // single Action Phase search starts.
 
@@ -208,16 +208,12 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
 export function applyAction(state: GameState, action: Action): GameState {
   const next = structuredClone(state);
   switch (action.type) {
-    case "resolveCombat": {
-      const result = resolveCombat(next, action.battlefieldId, {
+    case "resolveCombat":
+      resolveCombat(next, action.battlefieldId, {
         attackerDamageOrder: action.attackerDamageOrder,
         defenderDamageOrder: action.defenderDamageOrder,
       });
-      if (result.conquered && result.newController !== null) {
-        score(next, result.newController, action.battlefieldId, "conquer");
-      }
       break;
-    }
     case "playDiscipline":
       payCost(next, action.playerId, CARD_DEFINITIONS["OGN-058"]);
       moveCardFromHandToTrash(next, action.playerId, "OGN-058");
@@ -261,19 +257,9 @@ export function applyAction(state: GameState, action: Action): GameState {
       });
       break;
     }
-    case "moveUnit": {
-      // Rule 181.4.c: moving into an empty, uncontrolled battlefield
-      // establishes Control outright — that's gaining Control, so it's a
-      // Conquer Score (rule 630) just like winning a Combat is.
-      const mover = findUnit(next, action.unitInstanceId).controller;
-      const battlefield = next.battlefields.find((bf) => bf.id === action.destination);
-      const controllerBefore = battlefield?.controller ?? null;
+    case "moveUnit":
       moveUnit(next, action.unitInstanceId, action.destination);
-      if (battlefield && controllerBefore !== mover && battlefield.controller === mover) {
-        score(next, mover, battlefield.id, "conquer");
-      }
       break;
-    }
   }
   return next;
 }
@@ -288,8 +274,12 @@ export function canWin(
   playerId: PlayerId,
   line: Action[] = [],
 ): SolveResult {
-  if (state.players[playerId].points >= state.victoryScore) {
-    return { won: true, line };
+  // Rule 633: winning is immediate — including for the opponent, e.g. via
+  // a Burn Out this line caused. A line that hands them the game is dead,
+  // not something to keep searching past.
+  const gameWinner = winner(state);
+  if (gameWinner !== null) {
+    return gameWinner === playerId ? { won: true, line } : { won: false, line: [] };
   }
 
   for (const action of legalActions(state, playerId)) {

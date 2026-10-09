@@ -133,9 +133,8 @@ describe('the example scenario: 5-Might attacker vs 6-Might defender', () => {
 
     applyDiscipline(state, 'attacker', 'p1');
     expect(state.players.p1.hand).toEqual([makeCard('discipline-draw')]);
-    resolveCombat(state, 'bf1');
-
-    const result = score(state, 'p1', 'bf1', 'conquer');
+    // Conquering Scores automatically (rule 630.1) — no separate score() call.
+    const result = resolveCombat(state, 'bf1').score!;
 
     expect(result.scored).toBe(true);
     expect(result.wonGame).toBe(false);
@@ -260,5 +259,20 @@ describe('applyHextechRay (OGN-009): "Deal 3 to a unit at a battlefield."', () =
     applyHextechRay(state, 'u1');
 
     expect(state.units).toEqual([unit]);
+  });
+});
+
+describe('resolveCombat: Control after the fight', () => {
+  it('a mutual wipe leaves the battlefield uncontrolled — the defender has no Units left there', () => {
+    const state = makeGameState([
+      makeUnit({ instanceId: 'attacker', controller: 'p1', might: 3, combatRole: 'attacking' }),
+      makeUnit({ instanceId: 'defender', controller: 'p2', might: 3, combatRole: 'defending' }),
+    ]);
+
+    const result = resolveCombat(state, 'bf1');
+
+    expect(result.conquered).toBe(false);
+    expect(state.battlefields[0].controller).toBeNull();
+    expect(state.players.p1.points).toBe(0); // nobody gained Control, nobody Scores
   });
 });

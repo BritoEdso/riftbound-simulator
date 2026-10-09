@@ -1,4 +1,4 @@
-import { cleanupLethalUnits } from './cleanup';
+import { performCleanup } from './cleanup';
 import { draw } from './deck';
 import { winner } from './queries';
 import { channel } from './rune';
@@ -31,6 +31,7 @@ export function awaken(state: GameState): void {
 export function holdBattlefields(state: GameState): void {
   const playerId = state.turnPlayer;
   for (const battlefield of state.battlefields) {
+    if (winner(state) !== null) return; // rule 633: the game's already over
     if (battlefield.controller === playerId) {
       score(state, playerId, battlefield.id, 'hold');
     }
@@ -72,7 +73,8 @@ export function startTurn(state: GameState): void {
 //   expiring them is resetting might to baseMight. A permanent Might change
 //   would need its own tracking before this stays correct.
 // - Cleanup Step: Cleanup (rule 518). With damage just cleared it can't
-//   kill anything yet, so the 517.4 loop back to Expiration never happens.
+//   kill anything yet (no Ending Step effects deal damage), so the 517.4
+//   loop back to Expiration never happens; kept for the rule's sequence.
 // - Per-turn state resets (scoredByThisTurn, rule 631), and the other
 //   player becomes Turn Player (517.5). 1v1 only, like everything else.
 export function endTurn(state: GameState): void {
@@ -81,7 +83,7 @@ export function endTurn(state: GameState): void {
     unit.might = unit.baseMight;
   }
   emptyRunePools(state);
-  cleanupLethalUnits(state);
+  performCleanup(state);
 
   for (const battlefield of state.battlefields) {
     battlefield.scoredByThisTurn = [];

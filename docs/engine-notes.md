@@ -47,9 +47,15 @@ Key facts already encoded in `src/rules-engine/`:
   offer a free `score` Action (Hold *or* Conquer) for any controlled
   battlefield at any time, which let `canWin` report false wins (e.g. 7
   points + an already-controlled battlefield "won" instantly via Hold).
-  Now `applyAction` calls `score(..., 'conquer')` automatically whenever
-  Control is *gained* — a Conquering `resolveCombat`, or a `moveUnit` into
-  an empty uncontrolled battlefield (rule 181.4.c) — and Hold is never
+  Now Conquer Scores automatically inside the mechanics themselves whenever
+  Control is *gained* — `resolveCombat` (exposed as `CombatResult.score`)
+  and `moveUnit` into an empty uncontrolled battlefield (rule 181.4.c,
+  `MoveResult.score`) — so any caller gets it, not just the solver. Control
+  is also *lost* when a player has no Units left at a battlefield
+  (`cleanup.ts`'s `performCleanup`), so a mutual wipe or an abandoned
+  battlefield is uncontrolled and can't be Held next turn. `canWin` treats
+  an opponent reaching Victory Score (e.g. via a Burn Out the line caused)
+  as a dead line. Hold is never
   offered, since it only happens in the Beginning Phase and the solver
   searches a single Action Phase. `score(..., 'hold')` stays in
   `scoring.ts`; `turn.ts`'s `holdBattlefields` is its one caller.

@@ -1,4 +1,5 @@
-import { cleanupLethalUnits } from './cleanup';
+import { performCleanup } from './cleanup';
+import { score, ScoreResult } from './scoring';
 import { GameState, UnitInPlay } from './types';
 
 export interface CombatResult {
@@ -6,6 +7,9 @@ export interface CombatResult {
   killed: string[]; // instanceIds removed from play
   conquered: boolean;
   newController: string | null;
+  // Rule 630.1: Conquering is gaining Control, which Scores. undefined when
+  // the Combat didn't Conquer.
+  score?: ScoreResult;
 }
 
 // Distributes `totalDamage` across `targets`, respecting the Tank keyword
@@ -70,10 +74,13 @@ export function resolveCombat(
   assignDamage(attackerMight, defenders, orders.attackerDamageOrder);
   assignDamage(defenderMight, attackers, orders.defenderDamageOrder);
 
-  // cleanupLethalUnits checks and trashes lethal Units state-wide (rule
+  // performCleanup checks and trashes lethal Units state-wide (rule
   // 524.1/525's Cleanup isn't scoped to one battlefield) — filtered back
   // down to just this battlefield for CombatResult's own narrower contract.
-  const killed = cleanupLethalUnits(state).filter((u) => u.location === battlefieldId);
+  // It also drops Control from a defender left with no Units here, so the
+  // Conquer below is a genuine change of hands and a mutual wipe leaves the
+  // battlefield uncontrolled.
+  const killed = performCleanup(state).filter((u) => u.location === battlefieldId);
   const killedIds = killed.map((u) => u.instanceId);
 
   const survivingAttackers = state.units.filter(
@@ -85,12 +92,14 @@ export function resolveCombat(
 
   let conquered = false;
   let newController = battlefield.controller;
+  let scoreResult: ScoreResult | undefined;
 
   if (survivingAttackers.length > 0 && survivingDefenders.length === 0) {
     // Conquer: attacker takes control.
     conquered = true;
     newController = survivingAttackers[0].controller;
     battlefield.controller = newController;
+    scoreResult = score(state, newController, battlefieldId, 'conquer');
   } else if (survivingAttackers.length > 0 && survivingDefenders.length > 0) {
     // Recall: attacking units return to their controller's base.
     for (const unit of survivingAttackers) {
@@ -114,5 +123,5 @@ export function resolveCombat(
     }
   }
 
-  return { battlefieldId, killed: killedIds, conquered, newController };
+  return { battlefieldId, killed: killedIds, conquered, newController, score: scoreResult };
 }

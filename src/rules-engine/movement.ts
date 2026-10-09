@@ -1,8 +1,13 @@
+import { performCleanup } from './cleanup';
 import { findUnit } from './queries';
+import { score, ScoreResult } from './scoring';
 import { GameState } from './types';
 
 export interface MoveResult {
   contested: boolean;
+  // Rule 630.1: establishing Control of an empty, uncontrolled Battlefield
+  // is gaining Control, so it Scores via Conquer. undefined otherwise.
+  score?: ScoreResult;
 }
 
 // Rule 140-141 — Standard Move: a Unit exhausts itself to move from its
@@ -13,6 +18,14 @@ export interface MoveResult {
 // already present" is a 3+-player restriction; this project is 1v1 only
 // (see CLAUDE.md), so it never applies and isn't checked.
 export function moveUnit(state: GameState, unitInstanceId: string, destination: string): MoveResult {
+  const result = arrive(state, unitInstanceId, destination);
+  // Rule 518: a Cleanup follows every completed Move — which is where a
+  // Battlefield the mover just left empty loses its Control.
+  performCleanup(state);
+  return result;
+}
+
+function arrive(state: GameState, unitInstanceId: string, destination: string): MoveResult {
   const unit = findUnit(state, unitInstanceId);
   if (!unit.ready) {
     throw new Error(`Unit already Exhausted: ${unitInstanceId}`);
@@ -34,8 +47,11 @@ export function moveUnit(state: GameState, unitInstanceId: string, destination: 
 
   if (battlefield.controller === null && !opposingUnitsPresent) {
     // Rule 181.4.c: Control is established outright when nobody contests it.
+    // Real rules open a non-combat Showdown here first (rule 548.2) — with
+    // no Action/Reaction exchange modeled, it always ends with the mover in
+    // Control. See docs/turn-structure.md's open ambiguity #1.
     battlefield.controller = unit.controller;
-    return { contested: false };
+    return { contested: false, score: score(state, unit.controller, destination, 'conquer') };
   }
 
   if (battlefield.controller === unit.controller) {

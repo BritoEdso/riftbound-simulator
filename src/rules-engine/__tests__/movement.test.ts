@@ -137,3 +137,34 @@ describe('moveUnit (rule 140-141: Standard Move)', () => {
     expect(() => moveUnit(state, 'u1', 'nowhere')).toThrow();
   });
 });
+
+describe('moveUnit: Control and Conquer scoring', () => {
+  it('establishing Control of an empty, uncontrolled battlefield Scores via Conquer (rule 630.1)', () => {
+    const unit = makeUnit({ instanceId: 'u1', controller: 'p1', location: 'base' });
+    const state = makeState([unit], [{ id: 'bf1', controller: null, contested: false, scoredByThisTurn: [] }]);
+
+    const result = moveUnit(state, 'u1', 'bf1');
+
+    expect(result.score?.pointAwarded).toBe(true);
+    expect(state.players.p1.points).toBe(1);
+  });
+
+  it('moving your last Unit off a battlefield gives up Control of it (Cleanup after the Move)', () => {
+    const unit = makeUnit({ instanceId: 'u1', controller: 'p1', location: 'bf1' });
+    const state = makeState([unit], [{ id: 'bf1', controller: 'p1', contested: false, scoredByThisTurn: [] }]);
+
+    moveUnit(state, 'u1', 'base');
+
+    expect(state.battlefields[0].controller).toBeNull();
+  });
+
+  it('keeps Control while another friendly Unit stays behind', () => {
+    const leaving = makeUnit({ instanceId: 'leaving', controller: 'p1', location: 'bf1' });
+    const staying = makeUnit({ instanceId: 'staying', controller: 'p1', location: 'bf1' });
+    const state = makeState([leaving, staying], [{ id: 'bf1', controller: 'p1', contested: false, scoredByThisTurn: [] }]);
+
+    moveUnit(state, 'leaving', 'base');
+
+    expect(state.battlefields[0].controller).toBe('p1');
+  });
+});

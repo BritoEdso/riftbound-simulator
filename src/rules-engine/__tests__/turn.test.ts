@@ -202,3 +202,31 @@ describe('across turns: a Unit played this turn can attack on your next one', ()
     expect(result.line[0]).toEqual({ type: 'moveUnit', unitInstanceId: 'wurm', destination: 'bf1' });
   });
 });
+
+describe('Hold only scores battlefields you still have Units at', () => {
+  it("abandoning a battlefield on your turn means you don't Hold it on your next", () => {
+    const state = makeState();
+    state.battlefields[0].controller = 'p1';
+    state.units = [makeUnit({ instanceId: 'u1', controller: 'p1', location: 'bf1', ready: true })];
+    state.players.p1.deck = [makeCard('a')];
+    state.players.p2.deck = [makeCard('b')];
+
+    const next = applyAction(state, { type: 'moveUnit', unitInstanceId: 'u1', destination: 'base' });
+    passTurn(next);
+    passTurn(next);
+
+    expect(next.battlefields[0].controller).toBeNull();
+    expect(next.players.p1.points).toBe(0);
+  });
+
+  it('stops Holding once the Final Point is scored — no points past Victory Score', () => {
+    const state = makeState();
+    state.battlefields[0].controller = 'p1';
+    state.battlefields[1].controller = 'p1';
+    state.players.p1.points = 7;
+
+    holdBattlefields(state);
+
+    expect(state.players.p1.points).toBe(8);
+  });
+});
