@@ -54,3 +54,26 @@ export function describeAction(scenario: Scenario, state: GameState, action: Act
       return `Play ${CARD_DEFINITIONS[action.cardId].name} to ${locationName(scenario, action.location)}`;
   }
 }
+
+// The board objects an Action involves — unit/rune instanceIds and
+// battlefield ids — so the UI can highlight them while the learner hovers
+// the Action's button.
+export function actionSubjects(action: Action): string[] {
+  switch (action.type) {
+    case "moveUnits":
+      return [...action.unitInstanceIds, action.destination];
+    case "beginShowdown":
+    case "resolveCombat":
+      return [action.battlefieldId];
+    case "chooseTriggerTarget":
+    case "playSpell":
+      return [action.targetInstanceId];
+    case "exhaustRuneForEnergy":
+    case "recycleRuneForPower":
+      return [action.runeInstanceId];
+    case "playUnit":
+      return [action.location];
+    case "pass":
+      return [];
+  }
+}

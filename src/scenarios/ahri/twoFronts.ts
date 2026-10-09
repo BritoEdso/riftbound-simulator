@@ -23,7 +23,7 @@ function unit(overrides: Partial<UnitInPlay> & Pick<UnitInPlay, "instanceId" | "
 
 function initialState(): GameState {
   const discipline = CARD_DEFINITIONS["OGN-058"];
-  const magmaWurm = CARD_DEFINITIONS["OGN-011"];
+  const retreat = CARD_DEFINITIONS["OGN-104"];
   return {
     turnPlayer: "p1",
     turnNumber: 9,
@@ -37,10 +37,11 @@ function initialState(): GameState {
         hand: [discipline],
         // Two draws can happen this turn (Discipline's "Draw 1", and the
         // Conquer-at-match-point "draw instead") — a deck that ran out
-        // would Burn Out and hand the opponent their 8th point. Magma Wurm
-        // (8 Energy) can't be cast with two runes, so drawing it can't
-        // open an unintended solution the way a second Discipline would.
-        deck: [magmaWurm, magmaWurm, magmaWurm],
+        // would Burn Out and hand the opponent their 8th point. Retreat is
+        // a real Calm/Mind-deck card the learner may draw mid-trial, but it
+        // can't open a second solution: pulling a unit back never Scores
+        // anything (tested in twoFronts.test.ts).
+        deck: [retreat, retreat, retreat],
         runeDeck: [],
         runesInPlay: [
           { instanceId: "p1-rune-0", domain: "Calm", ready: true },
@@ -54,7 +55,7 @@ function initialState(): GameState {
         id: "p2",
         points: 7,
         hand: [],
-        deck: [magmaWurm],
+        deck: [retreat],
         runeDeck: [],
         runesInPlay: [
           { instanceId: "p2-rune-0", domain: "Fury", ready: false },
