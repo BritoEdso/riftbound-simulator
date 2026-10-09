@@ -36,6 +36,7 @@ function makeRayState(): GameState {
     turnPlayer: 'p1',
     turnNumber: 1,
     chain: null,
+    showdown: null,
     victoryScore: 8,
     players: { p1: makePlayer('p1'), p2: makePlayer('p2') },
     battlefields: [{ id: 'bf1', controller: 'p2', contested: true, scoredByThisTurn: [] }],

@@ -100,6 +100,10 @@ Combat, and the End-of-Turn Cleanup Step. Steps:
 
 ## Showdowns and Combat
 
+*Modeled in `showdown.ts`. Ambiguity #1 below was resolved as: the
+non-combat Showdown ends, Cleanup, then whoever still has Units there takes
+Control and Scores.*
+
 - **Contested** (~181): applied when a unit of a non-controller arrives.
   Controller keeps Control while contested. **"If a player has no Units at
   a Battlefield, they have no Control."**

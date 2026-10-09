@@ -108,6 +108,24 @@ export interface GameState {
   // i.e. the turn is in an Open State (rule 510) and Priority sits with the
   // Turn Player.
   chain: Chain | null;
+  // The Showdown in progress (rules 545-553) — see showdown.ts. null in a
+  // Neutral State.
+  showdown: Showdown | null;
+}
+
+export interface Showdown {
+  battlefieldId: string;
+  // A Combat's Showdown Step (opposing Units on both sides, rule 625) vs. a
+  // stand-alone Showdown at an uncontrolled Battlefield (rule 548.2).
+  isCombat: boolean;
+  // Focus (rule 513): permission to act while no Chain exists. Gaining it
+  // grants Priority; a Chain started mid-Showdown takes Priority over until
+  // it resolves, then Focus moves on (rule 553.1.a.1).
+  focus: PlayerId;
+  // Relevant Players who've passed Focus in a row. Once everyone has (2, in
+  // 1v1), the Showdown ends (rule 554) — a Combat then moves on to its
+  // Damage Step, which solver.ts offers as resolveCombat.
+  consecutivePasses: number;
 }
 
 // A played Spell waiting on the Chain to resolve. Its cost is already paid

@@ -2,6 +2,8 @@ import { CARD_DEFINITIONS } from './cards';
 import { performCleanup } from './cleanup';
 import { payCost } from './cost';
 import { SPELLS } from './effects';
+import { nextInTurnOrder } from './queries';
+import { passFocus, passFocusAfterChain } from './showdown';
 import { GameState, PlayerId } from './types';
 
 // The Chain and Priority (rules 507-513, 532-544). See
@@ -14,25 +16,31 @@ import { GameState, PlayerId } from './types';
 // goes to the controller of the new newest item — or, once the Chain is
 // empty, back to the Turn Player in an Open State.
 //
-// Not modeled yet: Showdowns (so Focus, and the Action keyword's
-// "playable in Showdowns", don't exist), triggered abilities joining the
-// Chain, and activated abilities other than Rune taps. Units never touch
+// Showdowns (showdown.ts) layer on top: with no Chain, the player with
+// Focus has Priority, and a Chain that empties mid-Showdown passes Focus on.
+//
+// Not modeled yet: triggered abilities joining the Chain, and activated
+// abilities other than Rune taps. Units never touch
 // the Chain at all: a permanent that starts a Chain resolves immediately
 // with no Priority given (rule 538), so solver.ts's playUnit stays direct.
 
-// Who may act right now: the Chain's Priority holder while it exists (a
-// Closed State), otherwise the Turn Player (Neutral Open State, rule 512.2.a
-// — only they have Priority during their Action Phase).
+// Who may act right now (rule 512.2): the Chain's Priority holder while one
+// exists (Closed State); else the player with Focus in a Showdown (Showdown
+// Open State); else the Turn Player (Neutral Open State — only they act
+// during their Action Phase).
 export function priorityHolder(state: GameState): PlayerId {
-  return state.chain?.priority ?? state.turnPlayer;
+  return state.chain?.priority ?? state.showdown?.focus ?? state.turnPlayer;
 }
 
-// Rule 510-512: what timing a card needs to be played right now. In an Open
-// State the Turn Player can play anything; in a Closed State (a Chain
-// exists) only Reactions (rule 725). Only meaningful for the Priority holder.
+// Rules 507-510: what timing a card needs right now. Neutral Open: anything.
+// Showdown Open: Action or Reaction (rule 508.1.a, 718). Closed (a Chain
+// exists, Showdown or not): Reaction only (rule 509.1.a, 725). Only
+// meaningful for the Priority holder.
 export function isPlayableNow(state: GameState, cardId: string): boolean {
-  if (state.chain === null) return true;
-  return CARD_DEFINITIONS[cardId].keywords.includes('Reaction');
+  const keywords = CARD_DEFINITIONS[cardId].keywords;
+  if (state.chain !== null) return keywords.includes('Reaction');
+  if (state.showdown !== null) return keywords.includes('Reaction') || keywords.includes('Action');
+  return true;
 }
 
 // Rule 554 / 537: play a Spell — pay its cost, move it from hand onto the
@@ -61,16 +69,20 @@ export function playSpell(state: GameState, playerId: PlayerId, cardId: string, 
 }
 
 // Rule 540.3-540.4: pass Priority to the next Relevant Player. Once every
-// Relevant Player has passed in a row, the newest item resolves.
+// Relevant Player has passed in a row, the newest item resolves. With no
+// Chain, passing in a Showdown passes Focus instead (showdown.ts).
 export function passPriority(state: GameState, playerId: PlayerId): void {
   const chain = state.chain;
-  if (chain === null) throw new Error('No Chain to pass on');
+  if (chain === null) {
+    passFocus(state, playerId);
+    return;
+  }
   if (chain.priority !== playerId) throw new Error(`${playerId} doesn't have Priority`);
 
   chain.consecutivePasses += 1;
   const relevantPlayers = Object.keys(state.players);
   if (chain.consecutivePasses < relevantPlayers.length) {
-    chain.priority = nextPlayer(relevantPlayers, playerId);
+    chain.priority = nextInTurnOrder(state, playerId);
     return;
   }
   resolveNewestItem(state);
@@ -93,13 +105,9 @@ function resolveNewestItem(state: GameState): void {
   const newest = chain.items[chain.items.length - 1];
   if (newest === undefined) {
     state.chain = null;
+    passFocusAfterChain(state, item.controller);
   } else {
     chain.priority = newest.controller;
     chain.consecutivePasses = 0;
   }
-}
-
-// Turn Order, as a repeating cycle (rule ~118).
-function nextPlayer(players: PlayerId[], current: PlayerId): PlayerId {
-  return players[(players.indexOf(current) + 1) % players.length];
 }

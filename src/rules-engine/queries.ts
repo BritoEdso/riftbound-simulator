@@ -12,3 +12,10 @@ export function winner(state: GameState): PlayerId | null {
     const won = Object.values(state.players).find((p) => p.points >= state.victoryScore);
     return won ? won.id : null;
 }
+
+// Turn Order as a repeating cycle (rule ~118) — the next player after
+// `current`. 1v1 in practice, but written for any player count.
+export function nextInTurnOrder(state: GameState, current: PlayerId): PlayerId {
+    const players = Object.keys(state.players);
+    return players[(players.indexOf(current) + 1) % players.length];
+}

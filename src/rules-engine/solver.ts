@@ -1,14 +1,20 @@
 import { CARD_DEFINITIONS } from "./cards";
 import { isPlayableNow, passPriority, playSpell, priorityHolder } from "./chain";
-import { resolveCombat } from "./combat";
 import { canAffordCost, payCost } from "./cost";
 import { SPELLS } from "./effects";
 import { winner } from "./queries";
 import { moveUnit } from "./movement";
 import { exhaustRuneForEnergy, recycleRuneForPower } from "./rune";
+import { beginShowdown, combatDamageDue, finishCombat, pendingShowdowns } from "./showdown";
 import { GameState, PlayerId, UnitInPlay } from "./types";
 
 export type Action =
+  // Rule ~526: open the Showdown (a Combat, if both sides have Units there)
+  // at a Contested Battlefield. Forced — while any is pending it's the
+  // only thing the Turn Player can do; the choice is just which one first.
+  | { type: "beginShowdown"; battlefieldId: string }
+  // A Combat's Damage + Resolution Steps, once its Showdown has closed
+  // (showdown.ts's combatDamageDue).
   | {
       type: "resolveCombat";
       battlefieldId: string;
@@ -64,35 +70,39 @@ function damageOrderOptions(units: UnitInPlay[]): (string[] | undefined)[] {
 // damage-order permutation count) — canWin/SolveResult remain the intended
 // public surface for actually driving the solver.
 export function legalActions(state: GameState, playerId: PlayerId): Action[] {
-  // Rule 512: only the player with Priority can act. While a Chain exists
-  // (Closed State) that's whoever the Chain says, and they're limited to
-  // Reactions, Rune taps, and passing; in the Open State it's the Turn
-  // Player, who can do anything except pass (there's nothing to pass on).
+  // Rule 512: only the player with Priority can act — the Chain's Priority
+  // holder, else the player with Showdown Focus, else the Turn Player
+  // (chain.ts's priorityHolder).
   if (playerId !== priorityHolder(state)) return [];
-  const open = state.chain === null;
+  const neutralOpen = state.chain === null && state.showdown === null;
 
-  const passActions: Action[] = open ? [] : [{ type: "pass", playerId }];
+  // Rule ~525-526: a Contested Battlefield in a Neutral Open State means a
+  // Showdown starts at the very Cleanup that noticed it — nothing else can
+  // happen first.
+  if (neutralOpen && pendingShowdowns(state).length > 0) {
+    return pendingShowdowns(state).map((battlefieldId) => ({ type: "beginShowdown" as const, battlefieldId }));
+  }
 
-  const combatActions: Action[] = !open ? [] : state.battlefields
-    .filter((bf) =>
-      state.units.some((u) => u.location === bf.id && u.combatRole !== null),
-    )
-    .flatMap((bf) => {
-      const attackers = state.units.filter(
-        (u) => u.location === bf.id && u.combatRole === "attacking",
-      );
-      const defenders = state.units.filter(
-        (u) => u.location === bf.id && u.combatRole === "defending",
-      );
-      return damageOrderOptions(attackers).flatMap((attackerDamageOrder) =>
-        damageOrderOptions(defenders).map((defenderDamageOrder) => ({
-          type: "resolveCombat" as const,
-          battlefieldId: bf.id,
-          attackerDamageOrder,
-          defenderDamageOrder,
-        })),
-      );
-    });
+  // Rule 626: once a Combat's Showdown closes, damage happens next —
+  // nothing else can intervene. Both sides' damage orders are chosen here
+  // in one Action (the Attacker assigns first; see damageOrderOptions).
+  if (combatDamageDue(state)) {
+    const battlefieldId = state.showdown!.battlefieldId;
+    const attackers = state.units.filter((u) => u.location === battlefieldId && u.combatRole === "attacking");
+    const defenders = state.units.filter((u) => u.location === battlefieldId && u.combatRole === "defending");
+    return damageOrderOptions(attackers).flatMap((attackerDamageOrder) =>
+      damageOrderOptions(defenders).map((defenderDamageOrder) => ({
+        type: "resolveCombat" as const,
+        battlefieldId,
+        attackerDamageOrder,
+        defenderDamageOrder,
+      })),
+    );
+  }
+
+  // Passing exists whenever there's something to pass on: a Chain
+  // (Priority) or a Showdown (Focus).
+  const passActions: Action[] = neutralOpen ? [] : [{ type: "pass", playerId }];
 
   // No "score" Action: Scoring isn't something a player chooses to do
   // (rule 630). Conquer happens automatically when Control is gained —
@@ -149,8 +159,9 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
   // candidates in *this* batch — only one of them is ever actually applied
   // per search branch, so there's no cross-branch collision risk. Open
   // State only — Magma Wurm has no Reaction keyword, and a Unit never uses
-  // the Chain's response window anyway (rule 538).
-  const uniqueAffordableUnitCardIds = !open ? [] : [
+  // the Chain's response window anyway (rule 538). Units can't be played
+  // in a Showdown either (rule ~547: no card category by default).
+  const uniqueAffordableUnitCardIds = !neutralOpen ? [] : [
     ...new Set(
       state.players[playerId].hand
         .filter((c) => c.type === "Unit" && c.might !== undefined)
@@ -175,9 +186,9 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
   // from its current location to any other base/battlefield. This is what
   // lets the solver actually get a Unit into combat — see movement.ts for
   // what happens to combatRole/Contested status when it arrives.
-  // Not in a Closed State (rule ~596).
+  // Not in a Closed State or a Showdown (rule ~596).
   const moveUnitActions: Action[] = state.units
-    .filter((u) => open && u.controller === playerId && u.ready)
+    .filter((u) => neutralOpen && u.controller === playerId && u.ready)
     .flatMap((u) =>
       ["base", ...state.battlefields.map((bf) => bf.id)]
         .filter((destination) => destination !== u.location)
@@ -193,7 +204,6 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
   // readable main line.
   return [
     ...passActions,
-    ...combatActions,
     ...spellActions,
     ...exhaustRuneActions,
     ...recycleRuneActions,
@@ -209,8 +219,11 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
 export function applyAction(state: GameState, action: Action): GameState {
   const next = structuredClone(state);
   switch (action.type) {
+    case "beginShowdown":
+      beginShowdown(next, action.battlefieldId);
+      break;
     case "resolveCombat":
-      resolveCombat(next, action.battlefieldId, {
+      finishCombat(next, {
         attackerDamageOrder: action.attackerDamageOrder,
         defenderDamageOrder: action.defenderDamageOrder,
       });
@@ -290,9 +303,10 @@ export function canWin(
   }
 
   // The opponent's choice: a forced win has to survive every reply. With no
-  // Chain, the opponent holding Priority means it's their Open State — they
-  // can simply end their turn, and this search doesn't cross turns.
-  if (state.chain === null) return { won: false, line: [] };
+  // Chain or Showdown, the opponent holding Priority means it's their own
+  // Neutral Open State — they can simply end their turn, and this search
+  // doesn't cross turns.
+  if (state.chain === null && state.showdown === null) return { won: false, line: [] };
   let mainLine: SolveResult | null = null;
   for (const action of actions) {
     const result = canWin(applyAction(state, action), playerId, [...line, action]);

@@ -41,6 +41,13 @@ function playAndResolve(state: GameState, playerId: string, cardId: string, targ
   return next;
 }
 
+// bf1's Combat, with its Showdown already closed (both players passed) —
+// the point where the Damage Step's resolveCombat is the next Action.
+function withClosedCombatShowdown(state: GameState): GameState {
+  state.showdown = { battlefieldId: "bf1", isCombat: true, focus: "p1", consecutivePasses: 2 };
+  return state;
+}
+
 function isSpell(action: Action, cardId: string): boolean {
   return action.type === "playSpell" && action.cardId === cardId;
 }
@@ -50,6 +57,7 @@ function makeGameState(units: UnitInPlay[]): GameState {
     turnPlayer: "p1",
     turnNumber: 1,
     chain: null,
+    showdown: null,
     victoryScore: 8,
     players: {
       p1: { id: "p1", points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },
@@ -332,7 +340,7 @@ describe("legalActions: resolveCombat damage-order choices", () => {
   it("offers exactly one resolveCombat action for a 1-vs-1 fight (no real choice to make)", () => {
     const attacker = makeUnit({ instanceId: "attacker", combatRole: "attacking" });
     const defender = makeUnit({ instanceId: "defender", controller: "p2", combatRole: "defending" });
-    const state = makeGameState([attacker, defender]);
+    const state = withClosedCombatShowdown(makeGameState([attacker, defender]));
 
     const combatActions = legalActions(state, "p1").filter((a) => a.type === "resolveCombat");
 
@@ -352,7 +360,7 @@ describe("legalActions: resolveCombat damage-order choices", () => {
       makeUnit({ instanceId: "d1", controller: "p2", combatRole: "defending" }),
       makeUnit({ instanceId: "d2", controller: "p2", combatRole: "defending" }),
     ];
-    const state = makeGameState([...attackers, ...defenders]);
+    const state = withClosedCombatShowdown(makeGameState([...attackers, ...defenders]));
 
     const combatActions = legalActions(state, "p1").filter((a) => a.type === "resolveCombat");
 
@@ -487,16 +495,23 @@ describe("Scoring is a consequence of gaining Control, not a free Action (rule 6
 
     expect(result.won).toBe(true);
     expect(result.line).toEqual([
+      { type: "beginShowdown", battlefieldId: "bf1" },
+      { type: "pass", playerId: "p1" }, // Attacker has Focus first
+      { type: "pass", playerId: "p2" },
       { type: "resolveCombat", battlefieldId: "bf1", attackerDamageOrder: undefined, defenderDamageOrder: undefined },
     ]);
   });
 
-  it("moving into an empty, uncontrolled battlefield establishes Control and so Scores via Conquer", () => {
+  it("moving into an empty, uncontrolled battlefield establishes Control — once its Showdown ends — and so Scores via Conquer", () => {
     const state = makeGameState([makeUnit({ instanceId: "scout", controller: "p1", location: "base" })]);
     state.battlefields = [{ id: "bf1", controller: null, contested: false, scoredByThisTurn: [] }];
     state.players.p1.points = 6;
 
-    const next = applyAction(state, { type: "moveUnit", unitInstanceId: "scout", destination: "bf1" });
+    let next = applyAction(state, { type: "moveUnit", unitInstanceId: "scout", destination: "bf1" });
+    expect(next.battlefields[0].controller).toBeNull();
+    next = applyAction(next, { type: "beginShowdown", battlefieldId: "bf1" });
+    next = applyAction(next, { type: "pass", playerId: "p1" });
+    next = applyAction(next, { type: "pass", playerId: "p2" });
 
     expect(next.battlefields[0].controller).toBe("p1");
     expect(next.battlefields[0].scoredByThisTurn).toEqual(["p1"]);
@@ -525,8 +540,12 @@ describe("Control loss and immediate wins inside the search", () => {
     state.players.p1.energyPool = 1;
     state.players.p1.powerPool = { Fury: 1 };
 
-    const rayed = playAndResolve(state, "p1", "OGN-009", "defender");
+    const inShowdown = applyAction(state, { type: "beginShowdown", battlefieldId: "bf1" });
+    let rayed = playAndResolve(inShowdown, "p1", "OGN-009", "defender");
     expect(rayed.battlefields[0].controller).toBeNull();
+    // The Chain emptying passed Focus to p2; both pass to close the Showdown.
+    rayed = applyAction(rayed, { type: "pass", playerId: "p2" });
+    rayed = applyAction(rayed, { type: "pass", playerId: "p1" });
 
     const fought = applyAction(rayed, { type: "resolveCombat", battlefieldId: "bf1" });
     expect(fought.battlefields[0].controller).toBe("p1");

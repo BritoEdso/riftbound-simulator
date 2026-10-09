@@ -20,8 +20,9 @@ Key facts already encoded in `src/rules-engine/`:
   `combatRole` for *every* unit there on both sides: the mover's side
   becomes Attacker, the other becomes Defender (rule 181.2/626.1.d — the
   Attacker is whoever just applied Contested status). Moving into an
-  uncontrolled, empty battlefield establishes Control outright instead, no
-  contest (rule 181.4.c). Battlefield-to-battlefield movement only exists
+  uncontrolled, empty battlefield Contests it with no combat roles, and a
+  non-combat Showdown (rule 548.2, `showdown.ts`) settles Control once it
+  ends. Battlefield-to-battlefield movement only exists
   via the Ganking keyword (rule 722), which no `CardDefinition` has, so
   it's not modeled; the "can't move to a battlefield with 2 other players
   already present" restriction (141.2.a.1) is a 3+-player rule that never
@@ -49,8 +50,8 @@ Key facts already encoded in `src/rules-engine/`:
   points + an already-controlled battlefield "won" instantly via Hold).
   Now Conquer Scores automatically inside the mechanics themselves whenever
   Control is *gained* — `resolveCombat` (exposed as `CombatResult.score`)
-  and `moveUnit` into an empty uncontrolled battlefield (rule 181.4.c,
-  `MoveResult.score`) — so any caller gets it, not just the solver. Control
+  and the end of a non-combat Showdown at an uncontrolled battlefield
+  (`showdown.ts`) — so any caller gets it, not just the solver. Control
   is also *lost* when a player has no Units left at a battlefield
   (`cleanup.ts`'s `performCleanup`), so a mutual wipe or an abandoned
   battlefield is uncontrolled and can't be Held next turn. `canWin` treats

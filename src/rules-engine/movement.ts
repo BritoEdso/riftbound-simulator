@@ -1,13 +1,9 @@
 import { performCleanup } from './cleanup';
 import { findUnit } from './queries';
-import { score, ScoreResult } from './scoring';
 import { GameState } from './types';
 
 export interface MoveResult {
   contested: boolean;
-  // Rule 630.1: establishing Control of an empty, uncontrolled Battlefield
-  // is gaining Control, so it Scores via Conquer. undefined otherwise.
-  score?: ScoreResult;
 }
 
 // Rule 140-141 — Standard Move: a Unit exhausts itself to move from its
@@ -46,12 +42,12 @@ function arrive(state: GameState, unitInstanceId: string, destination: string): 
   const opposingUnitsPresent = unitsHere.some((u) => u.controller !== unit.controller);
 
   if (battlefield.controller === null && !opposingUnitsPresent) {
-    // Rule 181.4.c: Control is established outright when nobody contests it.
-    // Real rules open a non-combat Showdown here first (rule 548.2) — with
-    // no Action/Reaction exchange modeled, it always ends with the mover in
-    // Control. See docs/turn-structure.md's open ambiguity #1.
-    battlefield.controller = unit.controller;
-    return { contested: false, score: score(state, unit.controller, destination, 'conquer') };
+    // Rule 548.2: arriving at an empty, uncontrolled Battlefield Contests it
+    // but isn't a Combat — a stand-alone Showdown opens (showdown.ts), and
+    // Control (and its Conquer Score) only goes to the mover once that ends
+    // with their Units still there. No combatRole: nobody's attacking.
+    battlefield.contested = true;
+    return { contested: true };
   }
 
   if (battlefield.controller === unit.controller) {

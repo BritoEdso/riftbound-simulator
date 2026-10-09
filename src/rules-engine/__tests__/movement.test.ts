@@ -21,6 +21,7 @@ function makeState(units: UnitInPlay[], battlefields: Battlefield[]): GameState 
     turnPlayer: 'p1',
     turnNumber: 1,
     chain: null,
+    showdown: null,
     victoryScore: 8,
     players: {
       p1: { id: 'p1', points: 0, hand: [], deck: [], runeDeck: [], runesInPlay: [], energyPool: 0, powerPool: {}, trash: [] },
@@ -48,15 +49,16 @@ describe('moveUnit (rule 140-141: Standard Move)', () => {
     expect(() => moveUnit(state, 'u1', 'bf1')).toThrow();
   });
 
-  it('establishes Control outright when moving into an uncontrolled, empty Battlefield (rule 181.4.c)', () => {
+  it('Contests an uncontrolled, empty Battlefield without taking Control yet — a non-combat Showdown decides that (rule 548.2)', () => {
     const unit = makeUnit({ instanceId: 'u1', controller: 'p1' });
     const state = makeState([unit], [{ id: 'bf1', controller: null, contested: false, scoredByThisTurn: [] }]);
 
     const result = moveUnit(state, 'u1', 'bf1');
 
-    expect(result.contested).toBe(false);
-    expect(state.battlefields[0].controller).toBe('p1');
-    expect(unit.combatRole).toBeNull();
+    expect(result.contested).toBe(true);
+    expect(state.battlefields[0]).toMatchObject({ controller: null, contested: true });
+    expect(unit.combatRole).toBeNull(); // nobody's attacking anything
+    expect(state.players.p1.points).toBe(0); // no Conquer until the Showdown ends
   });
 
   it('reinforcing a Battlefield you already control is not a contest', () => {
@@ -140,16 +142,6 @@ describe('moveUnit (rule 140-141: Standard Move)', () => {
 });
 
 describe('moveUnit: Control and Conquer scoring', () => {
-  it('establishing Control of an empty, uncontrolled battlefield Scores via Conquer (rule 630.1)', () => {
-    const unit = makeUnit({ instanceId: 'u1', controller: 'p1', location: 'base' });
-    const state = makeState([unit], [{ id: 'bf1', controller: null, contested: false, scoredByThisTurn: [] }]);
-
-    const result = moveUnit(state, 'u1', 'bf1');
-
-    expect(result.score?.pointAwarded).toBe(true);
-    expect(state.players.p1.points).toBe(1);
-  });
-
   it('moving your last Unit off a battlefield gives up Control of it (Cleanup after the Move)', () => {
     const unit = makeUnit({ instanceId: 'u1', controller: 'p1', location: 'bf1' });
     const state = makeState([unit], [{ id: 'bf1', controller: 'p1', contested: false, scoredByThisTurn: [] }]);
