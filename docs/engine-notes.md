@@ -1,0 +1,123 @@
+# Engine notes
+
+Detailed rule-by-rule mapping of what's encoded in `src/rules-engine/` and
+where. Pulled out of `CLAUDE.md` to keep that file lean (it's re-read in
+full on every change); read this one when you're actually touching a
+specific mechanic, not as general orientation — `CLAUDE.md`'s Architecture
+section is the map for that.
+
+Official rules PDF: https://static.dotgg.gg/media/sites/67/2025/06/Riftbound-Core-Rules-2025-06-02.pdf
+A text extraction is checked in at `docs/rules/riftbound-core-rules-2025-06-02.txt`
+(greppable; the PDF itself isn't tracked — 24MB, not worth it in git history).
+
+Key facts already encoded in `src/rules-engine/`:
+
+- **Standard Move / Contested status** (rules 140-141, 181): `movement.ts`'s
+  `moveUnit(state, unitInstanceId, destination)` moves a Unit between its
+  controller's base and a battlefield, exhausting it as the cost (rule
+  140.4 — throws if the unit isn't Ready). Moving into a battlefield you
+  don't control sets `Battlefield.contested = true` and re-derives
+  `combatRole` for *every* unit there on both sides: the mover's side
+  becomes Attacker, the other becomes Defender (rule 181.2/626.1.d — the
+  Attacker is whoever just applied Contested status). Moving into an
+  uncontrolled, empty battlefield establishes Control outright instead, no
+  contest (rule 181.4.c). Battlefield-to-battlefield movement only exists
+  via the Ganking keyword (rule 722), which no `CardDefinition` has, so
+  it's not modeled; the "can't move to a battlefield with 2 other players
+  already present" restriction (141.2.a.1) is a 3+-player rule that never
+  applies in this 1v1-only project.
+- **Combat** (rules 620-632): attacker sums Might, defender sums Might; each
+  side assigns their total as damage to the other's units (Tank units must
+  receive lethal damage first, and a unit must be assigned lethal damage in
+  full before spreading to another). Units with damage ≥ Might die via
+  `cleanup.ts`'s `cleanupLethalUnits` (see CLAUDE.md's Architecture section) — placed in
+  their owner's `PlayerState.trash` (rule 524.1/525) when their `cardId` is
+  a real registered `CardDefinition`. If the defender is wiped and attacker(s)
+  survive → **Conquer** (attacker takes control). If both sides have
+  survivors → attacker is **Recalled** to base, no conquer. Damage clears
+  from *all* units (not just the battlefield in question) after any combat
+  resolves.
+- **Scoring** (rules 629-637): score via **Conquer** (take a battlefield you
+  didn't already control) or **Hold** (control it at the start of your turn);
+  once per battlefield per player per turn. Standard 1v1 **Victory Score is
+  8**. Reaching your *final* point via Conquer only wins immediately if
+  you've also Scored every other battlefield that turn — otherwise you draw a
+  card instead and the game continues. A Hold always wins outright at match
+  point.
+- **Drawing / Burn Out** (rules 516.2.b, 607, 609): `PlayerState.deck` is an
+  ordered array — index 0 is the top. `draw(state, playerId, count)` in
+  `deck.ts` moves cards from deck to hand, one at a time — if the deck is
+  empty at any individual draw within that `count`, it Burns Out first
+  (`burnOut`, also exported): shuffle `trash` into `deck` (modeled as a
+  plain append, not a real randomized shuffle — nothing inspects deck order
+  beyond "the top card," so randomness here would only add nondeterminism
+  the solver has no use for) and give the opponent 1 point, *then* attempt
+  the draw. If `trash` is also empty, the draw just does nothing, but the
+  opponent still got the point (rule 609: repeated empty-deck draws hand the
+  opponent the game via points, not a deckout condition). "Chooses an
+  opponent" (607.3.b) has no real choice in this 1v1-only project — `draw`
+  derives the one other id directly. Used by Discipline's "Draw 1"
+  (`effects.ts`) and `scoring.ts`'s Conquer-at-match-point-without-a-fully-
+  scored-board case.
+- **Channeling** (rule 606): `PlayerState.runeDeck` is an ordered `Domain[]`
+  (index 0 = next channeled); `PlayerState.runesInPlay` holds the
+  `RuneInPlay[]` already on the board, each individually Ready or Exhausted.
+  `channel(state, playerId, count, ready)` in `rune.ts` moves runes from deck
+  to board — mirrors `draw()`'s shape, including channeling fewer than
+  requested instead of throwing if the Rune Deck runs low (rule 515.4.b.2).
+  Used by Retreat's "channels 1 rune exhausted" (`effects.ts`). Rule
+  154.2.b caps a Rune Deck at exactly 12 cards total, so `runeDeck.length +
+  runesInPlay.length` should never exceed 12.
+- **Multi-unit damage assignment** (rule 627): `assignDamage` in `combat.ts`
+  takes an optional `preferredOrder` (instanceIds) — the assigning player's
+  choice of priority *within* a tier of equal-priority targets. It can't
+  override mandatory Tank-first priority (rule 727.1.c), only break ties
+  among targets already at the same priority; omitting it reproduces the old
+  deterministic array-order default. `resolveCombat`'s `DamageOrders`
+  (`attackerDamageOrder`/`defenderDamageOrder`) exposes this per side;
+  `solver.ts`'s `legalActions()` generates one `resolveCombat` Action per
+  permutation of each side's order when that side has 2+ units (just one
+  when it doesn't, so the existing 1v1 tests are unaffected). Note: because
+  `assignDamage` never wastes damage, whether a group is *fully wiped* is
+  mathematically order-independent in this engine — the choice only changes
+  *which specific units* survive a partial kill, which nothing downstream
+  currently branches on, so this can't yet change a `canWin` verdict. It's
+  modeled for rules-accuracy and because a future effect keyed to a specific
+  surviving unit will need it.
+- **Rune Pool / costs** (rules 156-162, 740): a Basic Rune has two
+  abilities. `rune.ts`'s `exhaustRuneForEnergy` is `[T]: Add [1]` (Exhaust a
+  Ready rune → +1 domain-less Energy, `PlayerState.energyPool`).
+  `recycleRuneForPower` is `Recycle this: Add [C]` (return the rune to the
+  *bottom* of the Rune Deck via rule 594 Recycle → +1 Power of its own
+  domain, `PlayerState.powerPool`, shape shared with `CardDefinition`'s
+  `powerCost` as the `PowerPool` type in `types.ts`). `cost.ts` gates/pays
+  both halves of a card's cost: `canAffordEnergyCost`/`payEnergyCost`
+  (straightforward pool comparison), `canAffordPowerCost`/`payPowerCost`
+  (per rule 159.1, a Domain-specific Power cost draws its own Domain's pool
+  first, then Universal Power covers the shortfall — summed across every
+  Domain named in the cost against one shared Universal pool), and the
+  combined `canAffordCost`/`payCost` (rule 740: Energy and Power paid "in
+  total"), which is what `solver.ts` actually calls. `exhaustRuneForEnergy`
+  and `recycleRuneForPower` are both offered as their own `Action`s so
+  `canWin` can discover it needs to generate Energy/Power before it can
+  afford a card. **Both halves now provably change `canWin` verdicts on
+  their own** — Energy via `solver.test.ts`'s "Energy costs gate playing a
+  card" (Discipline), Power via its "Power costs gate playing a card too"
+  (Hextech Ray, OGN-009: Energy 1 + Power 1 Fury, "Deal 3 to a unit at a
+  battlefield" — kills a Might-3 blocker outright before combat, letting a
+  too-weak-to-win-honestly attacker conquer unopposed). Non-obvious finding
+  from building that scenario, confirmed in a test: **a single Rune covers
+  *both* halves** — Exhaust it for Energy, then Recycle the same
+  now-Exhausted Rune for Power, since Recycle doesn't require Ready (rule
+  594 isn't an Exhaust action). **A `'Universal'` entry *in a cost itself***
+  (as opposed to in a pool) is explicitly unmodeled — `cost.ts` throws
+  rather than guess, since no rule text shows a cost phrased that way and no
+  `CardDefinition` has one. `playUnit`'s own Energy/Power payment (see
+  CLAUDE.md's Architecture section) is still correct and tested, but still can't surface
+  inside a `canWin`-found *winning line*: a unit from `playUnit` enters
+  Exhausted (rule 139.4) and, with no Ready Step modeled, can never become
+  Ready again — so it can never `moveUnit` into a fight. `moveUnit`
+  itself (see CLAUDE.md's Architecture section) *does* change verdicts, just never starting
+  from a unit `playUnit` created — only for units a scenario starts already
+  in play and Ready. Also not modeled: the Rune Pool emptying every
+  phase/turn (rule 160.1) — no turn/phase system exists yet.
