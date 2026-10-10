@@ -624,3 +624,30 @@ describe("group moves: two attackers that only win together (rule ~596)", () => 
     expect(destinations).toEqual(["base"]);
   });
 });
+
+describe("recycling a Ready rune taps it first — 1 Floating Energy + 1 Floating Power", () => {
+  // A Basic Rune has two separate abilities, "[T]: Add [1]" and "Recycle
+  // this: Add [C]" (rule ~156.2.a). Recycle alone only adds Power, but a
+  // Ready rune can always be tapped first — Add abilities resolve at once
+  // (rule 605) — so no real player recycles one without taking the Energy.
+  function stateWithRune(ready: boolean) {
+    const state = makeGameState([]);
+    state.players.p1.runesInPlay = [{ instanceId: "r", domain: "Calm", ready }];
+    return state;
+  }
+
+  it("a Ready rune yields 1 Energy and 1 Power of its domain", () => {
+    const next = applyAction(stateWithRune(true), { type: "recycleRuneForPower", playerId: "p1", runeInstanceId: "r" });
+
+    expect(next.players.p1.energyPool).toBe(1);
+    expect(next.players.p1.powerPool).toEqual({ Calm: 1 });
+    expect(next.players.p1.runesInPlay).toEqual([]);
+  });
+
+  it("an already-Exhausted rune yields only the Power", () => {
+    const next = applyAction(stateWithRune(false), { type: "recycleRuneForPower", playerId: "p1", runeInstanceId: "r" });
+
+    expect(next.players.p1.energyPool).toBe(0);
+    expect(next.players.p1.powerPool).toEqual({ Calm: 1 });
+  });
+});

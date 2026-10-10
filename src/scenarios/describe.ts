@@ -48,7 +48,9 @@ export function describeAction(scenario: Scenario, state: GameState, action: Act
     }
     case "recycleRuneForPower": {
       const rune = state.players[action.playerId].runesInPlay.find((r) => r.instanceId === action.runeInstanceId);
-      return `Recycle a ${rune?.domain ?? ""} rune for 1 ${rune?.domain ?? ""} Power`;
+      return rune?.ready
+        ? `Tap & recycle a ${rune.domain} rune for 1 Energy + 1 ${rune.domain} Power`
+        : `Recycle an exhausted ${rune?.domain ?? ""} rune for 1 ${rune?.domain ?? ""} Power`;
     }
     case "playUnit":
       return `Play ${CARD_DEFINITIONS[action.cardId].name} to ${locationName(scenario, action.location)}`;

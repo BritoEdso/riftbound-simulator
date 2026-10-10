@@ -116,7 +116,14 @@ Key facts already encoded in `src/rules-engine/`:
   total"), which is what `solver.ts` actually calls. `exhaustRuneForEnergy`
   and `recycleRuneForPower` are both offered as their own `Action`s so
   `canWin` can discover it needs to generate Energy/Power before it can
-  afford a card. **Both halves now provably change `canWin` verdicts on
+  afford a card. **Recycling a Ready rune taps it first**: the solver's
+  `recycleRuneForPower` Action exhausts a Ready rune for its Energy before
+  recycling it (1 Energy + 1 Power), since the tap is a free Add ability
+  (rule 605) and recycling removes the rune — skipping it only threw
+  Energy away and produced fake dead ends in trials (user-reported).
+  `rune.ts`'s `recycleRuneForPower` itself stays rules-exact (Power only).
+  The trial UI calls the pools **Floating Energy / Floating Power**: they
+  persist for the whole turn. **Both halves now provably change `canWin` verdicts on
   their own** — Energy via `solver.test.ts`'s "Energy costs gate playing a
   card" (Discipline), Power via its "Power costs gate playing a card too"
   (Hextech Ray, OGN-009: Energy 1 + Power 1 Fury, "Deal 3 to a unit at a

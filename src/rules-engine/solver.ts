@@ -171,8 +171,8 @@ export function legalActions(state: GameState, playerId: PlayerId): Action[] {
   // Recycling a rune for Power ("Recycle this: Add [C]", rule 156.2.a) — the
   // Power counterpart to exhausting for Energy above. Offered for every rune
   // regardless of Ready/Exhausted (Recycle isn't an Exhaust action — rule
-  // 594). Now that Magma Wurm (OGN-011) has a real powerCost, this is no
-  // longer a dead branch the way it was before that card existed.
+  // 594); on a Ready rune applyAction taps it for Energy first, so it
+  // yields 1 Energy + 1 Power.
   const recycleRuneActions: Action[] = state.players[playerId].runesInPlay.map((r) => ({
     type: "recycleRuneForPower" as const,
     playerId,
@@ -273,9 +273,18 @@ export function applyAction(state: GameState, action: Action): GameState {
     case "exhaustRuneForEnergy":
       exhaustRuneForEnergy(next, action.playerId, action.runeInstanceId);
       break;
-    case "recycleRuneForPower":
+    case "recycleRuneForPower": {
+      // A Ready rune is tapped for its Energy first — "[T]: Add [1]" is a
+      // free Add ability that resolves at once (rule 605), and recycling
+      // removes the rune, so skipping the tap would just throw the Energy
+      // away. No real player does that, and modeling it made the solver
+      // (and the trial UI) report fake dead ends. rune.ts's
+      // recycleRuneForPower itself stays rules-exact: Recycle adds Power only.
+      const rune = next.players[action.playerId].runesInPlay.find((r) => r.instanceId === action.runeInstanceId);
+      if (rune?.ready) exhaustRuneForEnergy(next, action.playerId, action.runeInstanceId);
       recycleRuneForPower(next, action.playerId, action.runeInstanceId);
       break;
+    }
     case "playUnit": {
       const card = CARD_DEFINITIONS[action.cardId];
       if (card.might === undefined) {

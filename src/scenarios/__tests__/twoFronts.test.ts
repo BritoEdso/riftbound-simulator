@@ -61,6 +61,17 @@ describe("Two Fronts (Ahri, Intermediate)", () => {
     expect(trialStatus(afterB, "p1")).toBe("playing");
   });
 
+  it("recycling both runes up front is NOT a dead end — 2 Floating Energy still pays for Discipline", () => {
+    const state = play(ahriTwoFronts.initialState(), [
+      { type: "recycleRuneForPower", playerId: "p1", runeInstanceId: "p1-rune-0" },
+      { type: "recycleRuneForPower", playerId: "p1", runeInstanceId: "p1-rune-1" },
+    ]);
+
+    expect(state.players.p1.energyPool).toBe(2);
+    expect(state.players.p1.powerPool).toEqual({ Calm: 1, Mind: 1 });
+    expect(trialStatus(state, "p1")).toBe("playing");
+  });
+
   it("sending both units to A is a dead end", () => {
     const state = play(ahriTwoFronts.initialState(), [
       { type: "moveUnits", unitInstanceIds: ["ahri", "recruit"], destination: "bf-a" },

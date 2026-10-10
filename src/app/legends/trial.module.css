@@ -350,6 +350,9 @@
 }
 
 .pool {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font-size: 13px;
   color: var(--rift-muted);
 }

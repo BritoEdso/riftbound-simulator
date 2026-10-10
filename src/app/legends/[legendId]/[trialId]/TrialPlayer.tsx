@@ -346,11 +346,21 @@ function SideRow({ playerId, label, legendCardId, ...board }: BoardProps & { pla
       <div className={styles.resources}>
         <span className={styles.zoneLabel}>Runes</span>
         <Runes runes={player.runesInPlay} highlighted={highlighted} />
-        <span className={styles.pool}>
-          <b>{player.energyPool}</b> Energy
-          {Object.entries(player.powerPool)
-            .filter(([, n]) => (n ?? 0) > 0)
-            .map(([d, n]) => ` · ${n} ${d}`)}
+        {/* The Rune Pool: Energy/Power from tapped or recycled runes "floats"
+            for the rest of the turn (it only empties at the end of the Draw
+            Phase and the end of the turn). */}
+        <span className={styles.pool} title="Unspent Energy and Power stay available until the end of the turn">
+          <span>
+            <b>{player.energyPool}</b> Floating Energy
+          </span>
+          <span>
+            <b>{totalPower(player.powerPool)}</b> Floating Power
+            {totalPower(player.powerPool) > 0 &&
+              ` (${Object.entries(player.powerPool)
+                .filter(([, n]) => (n ?? 0) > 0)
+                .map(([d, n]) => `${n} ${d}`)
+                .join(", ")})`}
+          </span>
         </span>
         <span className={styles.counts}>
           Hand {player.hand.length} · Deck {player.deck.length} · Trash {player.trash.length}
@@ -358,6 +368,10 @@ function SideRow({ playerId, label, legendCardId, ...board }: BoardProps & { pla
       </div>
     </div>
   );
+}
+
+function totalPower(pool: GameState["players"][string]["powerPool"]): number {
+  return Object.values(pool).reduce((sum: number, n) => sum + (n ?? 0), 0);
 }
 
 function Runes({ runes, highlighted }: { runes: RuneInPlay[]; highlighted: string[] }) {
