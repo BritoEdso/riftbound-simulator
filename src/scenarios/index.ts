@@ -1,7 +1,12 @@
+import { ahriAnswerLast } from "./ahri/answerLast";
+import { ahriFoxAndFriend } from "./ahri/foxAndFriend";
+import { ahriPickYourPrey } from "./ahri/pickYourPrey";
 import { ahriTwoFronts } from "./ahri/twoFronts";
 import { DIFFICULTIES, Difficulty, Scenario } from "./types";
 
-export const SCENARIOS: Scenario[] = [ahriTwoFronts];
+// Within a Legend, order here is the order trials are numbered in on its
+// page (after grouping by tier).
+export const SCENARIOS: Scenario[] = [ahriFoxAndFriend, ahriPickYourPrey, ahriTwoFronts, ahriAnswerLast];
 
 export function findScenario(id: string): Scenario | undefined {
   return SCENARIOS.find((s) => s.id === id);
