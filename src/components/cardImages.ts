@@ -1,3 +1,5 @@
+import type { Domain } from '@/rules-engine/types';
+
 interface CardImageEntry {
     src: string;
     width: number;
@@ -27,4 +29,15 @@ export const CARD_IMAGES: Record<string, CardImageEntry> = {
   'OGN-119': { src: '/cards/ogn-119-ahri-inquisitive.png', width: 744, height: 1039, alt: 'Ahri, Inquisitive', type: 'Unit' },
   'RAD-038': { src: '/cards/rad-038-ahri-confident.png', width: 744, height: 1039, alt: 'Ahri, Confident', type: 'Unit' },
   'OGN-256': { src: '/cards/ogn-256-fox-fire.png', width: 744, height: 1039, alt: 'Fox-Fire', type: 'Spell' },
+};
+
+// Each domain's Basic Rune card (Origins printings), for drawing channeled
+// runes as real cards on the trial board.
+export const RUNE_CARD_ID: Record<Domain, string> = {
+  Fury: 'OGN-007',
+  Calm: 'OGN-042',
+  Mind: 'OGN-089',
+  Body: 'OGN-126',
+  Chaos: 'OGN-166',
+  Order: 'OGN-214',
 };

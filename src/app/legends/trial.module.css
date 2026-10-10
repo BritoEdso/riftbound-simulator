@@ -320,33 +320,44 @@
 .runes {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 2px;
 }
 
 .rune {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  font-family: var(--font-display), serif;
-  font-weight: 700;
-  font-size: 13px;
-  color: #fff;
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--domain) 60%, white), var(--domain) 65%);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--domain) 55%, transparent);
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
   transition: all 0.25s;
 }
 
-.rune[data-ready="false"] {
-  opacity: 0.35;
+.runeCard {
+  display: block;
+  width: 39px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--domain) 70%, transparent), 0 0 10px color-mix(in srgb, var(--domain) 45%, transparent);
+  transition: transform 0.3s ease, filter 0.3s, box-shadow 0.3s;
+}
+
+.runeCard img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+}
+
+/* Exhausted = turned sideways, like a tapped card on a real table. */
+.rune[data-ready="false"] .runeCard {
+  transform: rotate(90deg);
+  filter: saturate(0.4) brightness(0.65);
   box-shadow: none;
-  transform: rotate(90deg) scale(0.9);
 }
 
 .rune[data-highlight="true"] {
   outline: 2px solid var(--rift-gold);
-  outline-offset: 2px;
+  outline-offset: 1px;
+  box-shadow: 0 0 14px rgba(231, 192, 114, 0.45);
 }
 
 .pool {
@@ -1048,6 +1059,7 @@ details[open] > summary.railTitle {
   .unit,
   .handCard,
   .rune,
+  .runeCard,
   .marker {
     transition: none;
   }

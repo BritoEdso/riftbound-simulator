@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import Card from "@/components/Cards";
-import { CARD_IMAGES } from "@/components/cardImages";
+import { CARD_IMAGES, RUNE_CARD_ID } from "@/components/cardImages";
 import { CARD_DEFINITIONS } from "@/rules-engine/cards";
 import { priorityHolder } from "@/rules-engine/chain";
 import { combatDamageDue, pendingShowdowns } from "@/rules-engine/showdown";
@@ -379,15 +379,19 @@ function Runes({ runes, highlighted }: { runes: RuneInPlay[]; highlighted: strin
     <div className={styles.runes}>
       {runes.length === 0 && <span className={styles.empty}>None</span>}
       {runes.map((r) => (
+        // A square slot so an exhausted (sideways) rune card doesn't push
+        // its neighbours around.
         <span
           key={r.instanceId}
           className={styles.rune}
           data-ready={r.ready}
           data-highlight={highlighted.includes(r.instanceId)}
           style={{ "--domain": DOMAIN_COLOR[r.domain] } as React.CSSProperties}
-          title={`${r.domain} rune — ${r.ready ? "ready" : "exhausted"}`}
+          title={`${r.domain} Rune — ${r.ready ? "ready" : "exhausted"}`}
         >
-          {r.domain[0]}
+          <span className={styles.runeCard}>
+            <Card cardId={RUNE_CARD_ID[r.domain]} />
+          </span>
         </span>
       ))}
     </div>
