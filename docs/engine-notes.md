@@ -149,3 +149,14 @@ Key facts already encoded in `src/rules-engine/`:
   then A), and proving "no win" visits all of them — this took the
   Two Fronts "dead end" checks from ~13s to well under a second. Only
   losses are cached; a win returns at once, and its line is path-dependent.
+
+- **Known gap — who assigns combat damage** (rule ~626.1.d.3: "Starting with
+  the Attacker, each player distributes … among the other's Units"): the
+  solver's single `resolveCombat` Action carries *both* sides' damage orders
+  and is taken by one player, so the searcher also picks the defender's
+  split — slightly overstating the searcher. No current trial depends on it
+  (rules-checker, 2026-10-10); fix before a trial where the defender's split
+  matters. Also a deliberate assumption: rune taps are allowed in Closed and
+  Showdown states even though Basic Rune abilities have no Reaction tag
+  (`docs/turn-structure.md` ambiguity #4) — trials teach "tap early" to
+  sidestep it.

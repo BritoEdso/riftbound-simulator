@@ -26,7 +26,9 @@ function initialState(): GameState {
     ],
     units: [
       unit({ instanceId: "ahri", cardId: "OGN-119", controller: "p1", location: "base", might: 3 }),
-      unit({ instanceId: "sentinel", cardId: "generic-unit", controller: "p1", location: BF_B, might: 2 }),
+      // Exhausted: it can't reach A anyway (no Ganking), and a Ready one
+      // would only add a pointless "move back to base" option.
+      unit({ instanceId: "sentinel", cardId: "generic-unit", controller: "p1", location: BF_B, might: 2, ready: false }),
       unit({ instanceId: "brute", cardId: "generic-unit", controller: "p2", location: BF_A, might: 3 }),
       unit({ instanceId: "scout", cardId: "generic-unit", controller: "p2", location: BF_A, might: 1 }),
     ],

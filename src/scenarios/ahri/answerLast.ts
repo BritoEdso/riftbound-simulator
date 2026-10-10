@@ -92,6 +92,21 @@ export const ahriAnswerLast: Scenario = {
         "for one Ray, so the other front is safe. If they never Ray at all, you just win.",
       rules: ["725 — Reaction", "532–544 — the Chain (last in, first out)", "158 — the Rune Pool"],
     },
+    {
+      title: "Tap your runes before you move",
+      body:
+        "Energy you tap floats for the rest of the turn, so tap both runes up front: then Discipline is already " +
+        "paid for when the Ray arrives. (Basic rune abilities don't have the Reaction keyword, so whether you may " +
+        "tap them while a Chain is open is unclear in the rules — tapping early sidesteps the question.)",
+      rules: ["158 — the Rune Pool", "510 — Closed States"],
+    },
+    {
+      title: "Don't waste Discipline on a front you've already won",
+      body:
+        "If you take A first, your opponent may Ray Ahri while you're taking B. Let it happen: A is already Scored " +
+        "this turn, so losing Ahri costs you nothing. Save Discipline for the 2-Might unit at B.",
+      rules: ["631 — Scored this turn", "632 — the Final Point"],
+    },
   ],
   commonMistakes: [
     {
